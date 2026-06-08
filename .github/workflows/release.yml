@@ -8,7 +8,7 @@ on:
       revision:
         description: 'gitlab revision'
         required: true
-        default: '25.02'
+        default: '0.0'
       candidate_rev:
         description: 'Release candidate revision'
         required: false
@@ -38,27 +38,13 @@ jobs:
       - name: Setup Python environment
         uses: actions/setup-python@v6
         with:
-         python-version: '3.12' 
+         python-version: '3.14'
     
       - name: Install tools
         run: |
           sudo apt install rsync
           pip install numpy pillow semantic-version six requests junit_xml pyyaml pygithub
           mkdir ${{ github.workspace }}/out/
-
-      - name: Check and delete cache key
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          KEY="latest-tensorflow-pack-build_26.02"
-          REF="refs/heads/1.26.2"
-          REPO="${{ github.repository }}"
-      
-          if gh cache list --repo "$REPO" --ref "$REF" --key "$KEY" | grep -Fq "$KEY"; then
-            gh cache delete "$KEY" --repo "$REPO" --ref "$REF"
-          else
-            echo "Cache not found: $KEY"
-          fi
 
       - name: Get history of releases from github
         run: 
@@ -97,7 +83,7 @@ jobs:
           find ${{ github.workspace }}/tensorflow-pack/tensorflow-build/gen/ -name '*.pdsc' -exec cp -prv '{}' '${{ github.workspace }}/out/' ';'
 
       - name: Upload Pack
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: tensorflow-pack-release
           path: ${{ github.workspace }}/out
