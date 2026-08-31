@@ -4,6 +4,19 @@ name: Nightly CI
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+
+      revision:
+        description: 'gitlab revision'
+        required: true
+        default: '26.05'
+
+      candidate_rev:
+        description: 'Release candidate revision'
+        required: false
+        default: ''
+
+
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron:  '0 0 * * *'
@@ -15,16 +28,27 @@ jobs:
   # This workflow contains a single job called "build"
   build-tensorflow:
     # The type of runner that the job will run on
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
   
       - name: Checkout tensorflow-build 
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with: 
           repository: MDK-Packs/tensorflow-pack
           path: tensorflow-pack
+
+      - name: Restore latest release candidate
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/latest-rc
+          key: latest-tensorflow-pack-build
+
+      - name: Setup Python environment
+        uses: actions/setup-python@v7
+        with:
+         python-version: '3.14'
 
       - name: Install tools
         run: |
@@ -37,12 +61,9 @@ jobs:
           python3 ./tensorflow-pack/tensorflow-build/get_releases.py ${{ secrets.GITHUB_TOKEN }} > ./tensorflow-pack/tensorflow-build/history.txt
 
       - name: Run the pack build with the revision specified
+        continue-on-error: true
         run : 
           ./tensorflow-pack/tensorflow-build/build_d.sh n$(date +'%y%m%d')
-
-      #- name: Copy tensorflow-pack to out path
-      #  run :  
-      #    cp ${{ github.workspace }}/tensorflow-pack/tensorflow-build/gen/build/*.pack ${{ github.workspace }}/out/
 
       - name: Run the 3rdparty pack build with the revision specified
         run : |
@@ -58,13 +79,13 @@ jobs:
           find ${{ github.workspace }}/tensorflow-pack/ -name '*.pdsc' -exec cp -prv '{}' '${{ github.workspace }}/out/' ';'
 
       - name: Upload Pack
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: tensorflow-pack-release
           path: ${{ github.workspace }}/out
 
       - name: Update nightly release
-        uses: eine/tip@master
+        uses: pyTooling/Actions/releaser@r0
         with:
           tag: nightly
           rm: true

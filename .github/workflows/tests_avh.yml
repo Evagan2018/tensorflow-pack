@@ -5,7 +5,7 @@ on:
       revision:
         description: 'gitlab revision'
         required: false
-        default: '25.02'
+        default: '0.0'
       candidate_rev:
         description: 'Release candidate revision'
         required: false
@@ -41,13 +41,18 @@ jobs:
 
       fail-fast: false
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout repo
       uses: actions/checkout@v7
       with:
         repository: Arm-Examples/mlek-cmsis-pack-examples
+
+    - name: Setup Python 3.14
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.14'
 
     - name: Restore Latest Pack Build from Cache
       uses: actions/cache/restore@v6

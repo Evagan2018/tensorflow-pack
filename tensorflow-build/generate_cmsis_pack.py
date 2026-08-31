@@ -75,15 +75,15 @@ def prepare_environment():
 
     if utilities_os == "Linux":
         if platform.machine() == "aarch64":
-            packcheck_url = "https://github.com/Open-CMSIS-Pack/devtools/releases/download/tools%2Fpackchk%2F1.3.98/packchk-1.3.98-linux64-arm64.tbz2"
+            packcheck_url = "https://github.com/Open-CMSIS-Pack/devtools/releases/download/tools%2Fpackchk%2F1.4.5/packchk-1.4.5-linux-arm64.tbz2"
         else:
-            packcheck_url = "https://github.com/Open-CMSIS-Pack/devtools/releases/download/tools%2Fpackchk%2F1.3.98/packchk-1.3.98-linux64-amd64.tbz2"
+            packcheck_url = "https://github.com/Open-CMSIS-Pack/devtools/releases/download/tools%2Fpackchk%2F1.4.5/packchk-1.4.5-linux-amd64.tbz2"
         packcheck_name = "packchk"
     elif utilities_os == "Windows":
-        packcheck_url = "https://github.com/Open-CMSIS-Pack/devtools/releases/download/tools%2Fpackchk%2F1.3.98/packchk-1.3.98-windows64-amd64.zip"
+        packcheck_url = "https://github.com/Open-CMSIS-Pack/devtools/releases/download/tools%2Fpackchk%2F1.4.5/packchk-1.4.5-windows-amd64.zip"
         packcheck_name = "PackChk.exe"
     elif utilities_os == "Darwin":
-        packcheck_url = "https://github.com/Open-CMSIS-Pack/devtools/releases/download/tools%2Fpackchk%2F1.3.98/packchk-1.3.98-darwin64-amd64.tbz2"
+        packcheck_url = "https://github.com/Open-CMSIS-Pack/devtools/releases/download/tools%2Fpackchk%2F1.4.5/packchk-1.4.5-darwin-amd64.tbz2"
         packcheck_name = "packchk"
     else:
         print("No PackChk executable for Host OS " +
