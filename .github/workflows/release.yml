@@ -97,4 +97,4 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: ${{ github.workspace }}/out
-          key: latest-tensorflow-pack-build
+          key: latest-tensorflow-pack-build_${{ inputs.revision }}_${{ inputs.candidate_rev }}
