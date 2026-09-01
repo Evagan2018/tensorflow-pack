@@ -68,9 +68,29 @@ jobs:
     - name: Activate Arm tool license
       uses: ARM-software/cmsis-actions/armlm@v1
 
+    - name: Diagnosis
+      run: |
+        echo "github.workspace = ${{ github.workspace }}"
+        echo "GITHUB_WORKSPACE = $GITHUB_WORKSPACE"
+        echo "Current directory = $(pwd)"
+
+        echo "Current directory structure:"
+        tree -d -L 3
+
+        echo "Workspace contents:"
+        ls -la "$GITHUB_WORKSPACE"
+
+        echo "Pack files under workspace/out:"
+        if [[ -d "$GITHUB_WORKSPACE/out" ]]; then
+          find "$GITHUB_WORKSPACE/out" -maxdepth 2 -type f -print
+        else
+          echo "ERROR: $GITHUB_WORKSPACE/out does not exist"
+        fi
+
     - name: Unpack and Install Packs
+      working-directory: ${{ github.workspace }}/out    
       run: 
-        cd ${{ github.workspace }}/out && cpackget add *.pack -a
+        cpackget add ./*.pack -a
 
     - name: Diagnosis where *.yml files are locacted
       run:
