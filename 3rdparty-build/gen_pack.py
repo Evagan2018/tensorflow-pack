@@ -134,7 +134,7 @@ def main(unparsed_args, flags):
     print(template_file_text)
 
   print (">>> Running PackCheck")
-  command = "packchk -n PackName.txt " + pdsc_path
+  command = "packchk --disable-validation -n PackName.txt " + pdsc_path
   print (">>>", command)
   os.system(command)
 

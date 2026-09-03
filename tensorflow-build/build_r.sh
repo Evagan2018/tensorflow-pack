@@ -4,7 +4,7 @@ echo "\033[0;32m"
 echo "Building from ethos-u release: " $1
 echo "Release tag: " $2
 
-# Check if working directories exist and delete if so. Then create new.
+echo "Check if working directories exist and delete if so. Then create new."
 if [ -d "./tensorflow-pack/tensorflow-build/rel" ]; then
    rm -rf ./tensorflow-pack/tensorflow-build/rel
 fi
@@ -25,23 +25,25 @@ if [ -d "./tensorflow-pack/tensorflow-build/gen/build" ]; then
 fi
 mkdir ./tensorflow-pack/tensorflow-build/gen/build
 
-# Get ethos-u root
+echo "Get ethos-u root"
 wget -O ./tensorflow-pack/tensorflow-build/rel/main.tar.gz https://gitlab.arm.com/artificial-intelligence/ethos-u/ethos-u/-/archive/main/ethos-u-main.tar.gz
 
-# Extract tar.gz
+echo "Extract tar.gz"
 tar -xzf ./tensorflow-pack/tensorflow-build/rel/main.tar.gz -C ./tensorflow-pack/tensorflow-build/rel
 
-# Get ethos-u srcs
+echo "Get ethos-u srcs"
 cd ./tensorflow-pack/tensorflow-build/rel/ethos-u-main/
 
 echo "\033[1;33m"
 
+echo "Fetch externals"
 python3 fetch_externals.py -c $1.json fetch
 
 echo "\033[0;32m"
 
 cd ./core_software/tflite_micro
 
+echo "Create TFLM tree for srcs.raw"
 python3 ./tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py  \
    --makefile_options="TARGET=cortex_m_generic TARGET_ARCH=cortex-m7" \
    --print_src_files --rename_cc_to_cpp\
@@ -50,6 +52,7 @@ python3 ./tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py  \
 rsync -a ../../../../../tensorflow-build/src/tensorflow ../../../../../tensorflow-build/gen/build
 rsync -a ../../../../../tensorflow-build/src/signal ../../../../../tensorflow-build/gen/build
 
+echo "Create TFLM tree for srcs.cmsis_nn.raw"
 python3 ./tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py  \
    --makefile_options="TARGET=cortex_m_generic OPTIMIZED_KERNEL_DIR=cmsis_nn TARGET_ARCH=cortex-m55" \
    --print_src_files --rename_cc_to_cpp\
@@ -58,6 +61,7 @@ python3 ./tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py  \
 rsync -a ../../../../../tensorflow-build/src/tensorflow ../../../../../tensorflow-build/gen/build
 rsync -a ../../../../../tensorflow-build/src/signal ../../../../../tensorflow-build/gen/build
 
+echo "Create TFLM tree for srcs.ethos_u.raw"
 python3 ./tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py  \
    --makefile_options="TARGET=cortex_m_generic OPTIMIZED_KERNEL_DIR=cmsis_nn CO_PROCESSOR=ethos_u ETHOSU_ARCH=u55 TARGET_ARCH=cortex-m55" \
    --print_src_files \
@@ -66,12 +70,14 @@ python3 ./tensorflow/lite/micro/tools/project_generation/create_tflm_tree.py  \
 rsync -a ../../../../../tensorflow-build/src/tensorflow ../../../../../tensorflow-build/gen/build
 rsync -a ../../../../../tensorflow-build/src/signal ../../../../../tensorflow-build/gen/build
 
+echo "rsync testing, 3rdparty-build/src, and ethos_u_core_driver."
 rsync -a ./tensorflow/lite/micro/testing/*.h ../../../../../tensorflow-build/gen/build/tensorflow/lite/micro/testing/ 
-
 rsync -a ../../../../../tensorflow-build/src/third_party/ ../../../../../3rdparty-build/src
 rsync -a ../core_driver/ ../../../../../3rdparty-build/src/ethos_u_core_driver
 
 cd ../../../../../..
+
+echo "Clean files"
 python3 ./tensorflow-pack/tensorflow-build/clean_file_list.py \
         ./tensorflow-pack/tensorflow-build/srcs.raw > ./tensorflow-pack/tensorflow-build/srcs.lst
 python3 ./tensorflow-pack/tensorflow-build/clean_file_list.py \
@@ -79,15 +85,17 @@ python3 ./tensorflow-pack/tensorflow-build/clean_file_list.py \
 python3 ./tensorflow-pack/tensorflow-build/clean_file_list.py \
         ./tensorflow-pack/tensorflow-build/srcs.ethos_u.raw > ./tensorflow-pack/tensorflow-build/srcs.ethos_u.lst
 
-
+echo "Add tensorflow examaples to the pack"
 # Add ./tensorflow-pack/tensorflow-build/add/examples to /tensorflow-build/gen/build with rsync
 rsync -a ./tensorflow-pack/tensorflow-build/add/examples/ ./tensorflow-pack/tensorflow-build/gen/build/examples/
 
+echo "Add tensorflow documentation to the pack"
 # Add ./tensorflow-pack/tensorflow-build/add/Documenation to /tensorflow-build/gen/build with rsync
 rsync -a ./tensorflow-pack/tensorflow-build/add/Documentation/ ./tensorflow-pack/tensorflow-build/gen/build/Documentation/
 
 echo "\033[0;33m"
 
+echo "Check if a patch exists for this version"
 # If a folder ./patches/$1 exists, call the patch.sh in this folder
 if [ -d "./tensorflow-pack/tensorflow-build/patches/$1" ]; then
   echo "Patching"
@@ -96,6 +104,7 @@ fi
 
 echo "\033[1;34m"
 
+echo "Generate cmsis pack"
 python3 ./tensorflow-pack/tensorflow-build/generate_cmsis_pack.py  \
    --release=1.$1 \
    --candidate_rev=$2 \

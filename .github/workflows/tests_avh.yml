@@ -5,7 +5,7 @@ on:
       revision:
         description: 'gitlab revision'
         required: false
-        default: '25.02'
+        default: '26.05'
       candidate_rev:
         description: 'Release candidate revision'
         required: false
@@ -41,7 +41,7 @@ jobs:
 
       fail-fast: false
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout repo
@@ -49,11 +49,16 @@ jobs:
       with:
         repository: Arm-Examples/mlek-cmsis-pack-examples
 
+    - name: Setup Python 3.14
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.14'
+
     - name: Restore Latest Pack Build from Cache
       uses: actions/cache/restore@v6
       with:
          path: ${{ github.workspace }}/out
-         key: latest-tensorflow-pack-build_${{ inputs.revision }}${{ inputs.candidate_rev }}
+         key: latest-tensorflow-pack-build_${{ inputs.revision }}_${{ inputs.candidate_rev }}
          
     - name: Install tools
       uses: ARM-software/cmsis-actions/vcpkg@v1
@@ -64,8 +69,9 @@ jobs:
       uses: ARM-software/cmsis-actions/armlm@v1
 
     - name: Unpack and Install Packs
+      working-directory: ${{ github.workspace }}/out    
       run: 
-        cd ${{ github.workspace }}/out && cpackget add *.pack -a
+        cpackget add ./*.pack -a
 
     - name: Diagnosis where *.yml files are locacted
       run:
