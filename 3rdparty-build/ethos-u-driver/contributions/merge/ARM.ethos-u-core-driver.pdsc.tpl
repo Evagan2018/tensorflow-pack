@@ -22,7 +22,9 @@
       <Pre_Include_Global_h>
         // enabling global pre includes 
         #define ETHOSU_ARCH u55
+        #ifndef ETHOSU55
         #define ETHOSU55
+        #endif
         #ifndef ETHOSU_MACS
         #define ETHOSU_MACS 256
         #endif
@@ -45,7 +47,9 @@
       <Pre_Include_Global_h>
         // enabling global pre includes 
         #define ETHOSU_ARCH u65
+        #ifndef ETHOSU65
         #define ETHOSU65
+        #endif		
         #ifndef ETHOSU_MACS
         #define ETHOSU_MACS 256
         #endif
@@ -68,7 +72,9 @@
       <Pre_Include_Global_h>
         // enabling global pre includes 
         #define ETHOSU_ARCH u85
+        #ifndef ETHOSU85
         #define ETHOSU85
+        #endif		
         #ifndef ETHOSU_MACS
         #define ETHOSU_MACS 256
         #endif
