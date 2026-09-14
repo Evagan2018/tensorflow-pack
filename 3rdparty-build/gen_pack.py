@@ -134,9 +134,9 @@ def main(unparsed_args, flags):
     print(template_file_text)
 
   print (">>> Running PackCheck")
-  command = "packchk --disable-validation -n PackName.txt " + pdsc_path
-  print (">>>", command)
-  os.system(command)
+  command = ["packchk", "--disable-validation", "-n", "PackName.txt", pdsc_path]
+  print (">>>", " ".join(command))
+  subprocess.run(command, check=True)
 
   with open (os.getcwd() + "/PackName.txt", "r") as packversion_file:
       packfile_name=packversion_file.readline()

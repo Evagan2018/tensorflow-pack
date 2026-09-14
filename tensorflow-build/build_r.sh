@@ -73,7 +73,12 @@ rsync -a ../../../../../tensorflow-build/src/signal ../../../../../tensorflow-bu
 echo "rsync testing, 3rdparty-build/src, and ethos_u_core_driver."
 rsync -a ./tensorflow/lite/micro/testing/*.h ../../../../../tensorflow-build/gen/build/tensorflow/lite/micro/testing/ 
 rsync -a ../../../../../tensorflow-build/src/third_party/ ../../../../../3rdparty-build/src
-rsync -a ../core_driver/ ../../../../../3rdparty-build/src/ethos_u_core_driver
+# fetch_externals.py checks out into a directory which can already contain files
+# from the ethos-u superproject archive. Remove those untracked legacy files before
+# packaging and do not copy the nested Git repository into the CMSIS pack.
+git -C ../core_driver clean -ffd
+rm -rf ../../../../../3rdparty-build/src/ethos_u_core_driver
+rsync -a --exclude='.git/' ../core_driver/ ../../../../../3rdparty-build/src/ethos_u_core_driver
 
 cd ../../../../../..
 

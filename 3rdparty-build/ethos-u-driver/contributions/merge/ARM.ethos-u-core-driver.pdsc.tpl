@@ -22,11 +22,16 @@
       <Pre_Include_Global_h>
         // enabling global pre includes 
         #define ETHOSU_ARCH u55
+        #define ETHOSU55
+        #ifndef ETHOSU_MACS
+        #define ETHOSU_MACS 256
+        #endif
       </Pre_Include_Global_h>
       <files>     
-        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_device_u55_u65.c"/>
         <file category="sourceC" name="ethos_u_core_driver/src/ethosu_driver.c"/>
         <file category="sourceC" name="ethos_u_core_driver/src/ethosu_pmu.c"/>
+        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_backend_u55.c"/>
+        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_pmu_u55.c"/>
         <file category="include" name="ethos_u_core_driver/src/"/>
         <file category="include" name="ethos_u_core_driver/include/"/>
       </files>
@@ -40,11 +45,16 @@
       <Pre_Include_Global_h>
         // enabling global pre includes 
         #define ETHOSU_ARCH u65
+        #define ETHOSU65
+        #ifndef ETHOSU_MACS
+        #define ETHOSU_MACS 256
+        #endif
       </Pre_Include_Global_h>
       <files>     
-        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_device_u55_u65.c"/>
         <file category="sourceC" name="ethos_u_core_driver/src/ethosu_driver.c"/>
         <file category="sourceC" name="ethos_u_core_driver/src/ethosu_pmu.c"/>
+        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_backend_u65.c"/>
+        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_pmu_u65.c"/>
         <file category="include" name="ethos_u_core_driver/src/"/>
         <file category="include" name="ethos_u_core_driver/include/"/>
       </files>
@@ -58,11 +68,16 @@
       <Pre_Include_Global_h>
         // enabling global pre includes 
         #define ETHOSU_ARCH u85
+        #define ETHOSU85
+        #ifndef ETHOSU_MACS
+        #define ETHOSU_MACS 256
+        #endif
       </Pre_Include_Global_h>
       <files>     
-        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_device_u85.c"/>
         <file category="sourceC" name="ethos_u_core_driver/src/ethosu_driver.c"/>
         <file category="sourceC" name="ethos_u_core_driver/src/ethosu_pmu.c"/>
+        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_backend_u85.c"/>
+        <file category="sourceC" name="ethos_u_core_driver/src/ethosu_pmu_u85.c"/>
         <file category="include" name="ethos_u_core_driver/src/"/>
         <file category="include" name="ethos_u_core_driver/include/"/>
       </files>
