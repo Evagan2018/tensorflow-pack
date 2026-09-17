@@ -1,0 +1,133 @@
+name: CMSIS-LiteRT build and execution test
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'gitlab revision'
+        required: false
+        default: '26.08'
+      candidate_rev:
+        description: 'Release candidate revision'
+        required: false
+        default: ''
+
+run-name: CMSIS-LiteRT test with tensorflow pack ${{ inputs.revision }}_${{ inputs.candidate_rev }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-run:
+    name: Corstone-320 U85 (${{ matrix.toolchain }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [AC6, GCC, CLANG]
+    defaults:
+      run:
+        shell: bash
+        working-directory: litert
+    steps:
+      - name: Checkout pack test helpers
+        uses: actions/checkout@v7
+        with:
+          path: pack-ci
+
+      - name: Checkout CMSIS-LiteRT
+        uses: actions/checkout@v7
+        with:
+          repository: Evagan2018/CMSIS-LiteRT
+          ref: db4df6a98890415ea0cd37b1f1dff42cdd2b5bcd
+          path: litert
+
+      # Same path and key as release.yml and tests_avh.yml; no fallback keys.
+      - name: Restore selected candidate packs
+        id: candidate
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/out
+          key: latest-tensorflow-pack-build_${{ inputs.revision }}_${{ inputs.candidate_rev }}
+          fail-on-cache-miss: true
+
+      - name: Require an exact cache match
+        if: steps.candidate.outputs.cache-hit != 'true'
+        run: |
+          echo '::error::The exact candidate cache is unavailable. Build this release/candidate first.'
+          exit 1
+
+      - name: Install tools
+        uses: ARM-software/cmsis-actions/vcpkg@v1
+        with:
+          config: './litert/vcpkg-configuration.json'
+
+      - name: Activate Arm tool license
+        uses: ARM-software/cmsis-actions/armlm@v1
+
+      # The pinned FVP needs the complete Python 3.11 standard library.
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Select exact candidate versions
+        run: |
+          python -m pip install PyYAML==6.0.2
+          python ../pack-ci/.github/scripts/litert_candidate.py prepare --packs ../out --checkout .
+          git rev-parse HEAD | tee example-commit.txt
+
+      - name: Install candidate packs
+        run: cpackget add ../out/*.pack -a
+
+      - name: Create Vela environment
+        run: ./setup_venv.sh
+
+      - name: Generate MLOps information and verify packs
+        run: |
+          cbuild setup cmsis-litert.csolution.yml --active SSE-320-U85 --toolchain ${{ matrix.toolchain }} --packs 2>&1 | tee setup.log
+          python ../pack-ci/.github/scripts/litert_candidate.py verify --checkout .
+
+      - name: Generate AI layer
+        run: python create_ai_layer.py cmsis-litert.cbuild-mlops.yml 2>&1 | tee ai-layer.log
+
+      - name: Build and verify packs
+        run: |
+          cbuild cmsis-litert.csolution.yml --active SSE-320-U85 --toolchain ${{ matrix.toolchain }} --update-rte 2>&1 | tee build.log
+          python ../pack-ci/.github/scripts/litert_candidate.py verify --checkout .
+
+      - name: Run inference on Corstone-320
+        env:
+          PYTHONHOME: ${{ env.pythonLocation }}
+        run: |
+          mapfile -t images < <(find out -type f \( -name 'cmsis-litert.axf' -o -name 'cmsis-litert.elf' \))
+          if [ "${#images[@]}" -ne 1 ]; then
+            echo "::error::Expected one executable, found ${#images[@]}"
+            exit 1
+          fi
+          timeout 180s FVP_Corstone_SSE-320 \
+            -f board/Corstone-320/fvp_config.txt \
+            -a "${images[0]}" --simlimit 60 --stat 2>&1 | tee fvp_stdout.log
+          grep -Eq 'MACs/cc:[[:space:]]+256' fvp_stdout.log
+          grep -Fq 'Perform Inference (Ethos-U)' fvp_stdout.log
+          grep -Fq '~~~ALL TESTS PASSED~~~' fvp_stdout.log
+          if grep -Fq '~~~TESTS FAILED~~~' fvp_stdout.log; then
+            exit 1
+          fi
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cmsis-litert-${{ matrix.toolchain }}
+          path: |
+            litert/*.log
+            litert/example-commit.txt
+            litert/candidate-packs.json
+            litert/*.cbuild*.yml
+            litert/*.csolution.yml
+            litert/board/Corstone-320/Board-U85.clayer.yml
+            litert/Model/
+            litert/out/**/*.axf
+            litert/out/**/*.elf
