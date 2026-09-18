@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: Evagan2018/CMSIS-LiteRT
-          ref: db4df6a98890415ea0cd37b1f1dff42cdd2b5bcd
+          ref: 84bdb98f2045ce299686364518615177ecb0fe25
           path: litert
 
       # Same path and key as release.yml and tests_avh.yml; no fallback keys.
