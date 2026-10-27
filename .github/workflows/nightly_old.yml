@@ -67,8 +67,6 @@ jobs:
       #  run : |
       #    python3 ./tensorflow-pack/3rdparty-build/gen_pack.py --path=./tensorflow-pack/3rdparty-build/ruy --date_tag
       #    cp ${{ github.workspace }}/tensorflow-pack/3rdparty-build/ruy/build/*.pack ${{ github.workspace }}/out/
-      #- name: Build 3rd Party Pack Ethos-U Driver 
-      #  run : |
       - name: Upload packs
         uses: actions/upload-artifact@v7
         with:
