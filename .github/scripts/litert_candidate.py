@@ -32,7 +32,6 @@ def fetch_driver(destination):
     return target
 
 
-
 def prepare(packs, checkout):
     versions, evidence = {}, []
     driver_lock = json.loads(DRIVER_LOCK.read_text())

@@ -116,6 +116,30 @@ class CandidateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Legacy driver'):
             candidate.verify(self.checkout)
 
+    def test_legacy_pdsc_dependency_rejected(self):
+        archive = self.packs / 'tensorflow.tensorflow-lite-micro.pack'
+        with ZipFile(archive) as z:
+            name = z.namelist()[0]
+            pdsc = z.read(name).replace(b'CMSIS-Ethos-U', b'ethos-u-core-driver')
+        with ZipFile(archive, 'w') as z:
+            z.writestr(name, pdsc)
+        with self.assertRaisesRegex(ValueError, 'PDSC still requires legacy'):
+            self.prepare()
+
+    def test_duplicate_pack_identity_rejected(self):
+        source = self.packs / 'tensorflow.ruy.pack'
+        (self.packs / 'duplicate.pack').write_bytes(source.read_bytes())
+        with self.assertRaisesRegex(ValueError, 'Duplicate candidate'):
+            self.prepare()
+
+    def test_download_hash_mismatch_does_not_write_artifact(self):
+        destination = self.root / 'download'
+        with patch.object(candidate.urllib.request, 'urlopen') as download:
+            download.return_value.read.return_value = b'tampered'
+            with self.assertRaisesRegex(ValueError, 'SHA256 mismatch'):
+                candidate.fetch_driver(destination)
+        self.assertEqual(list(destination.iterdir()), [])
+
 
 if __name__ == '__main__':
     unittest.main()
