@@ -58,3 +58,21 @@ This change implements the driver replacement and AVH retirement. It does not
 implement the separately proposed operator-model generator or claim new
 operator/shape/dtype coverage. The existing LiteRT AI-layer generator remains
 in use. A build success alone does not qualify the new driver at runtime.
+
+## Validation on 2026-10-27
+
+- [Infrastructure checks](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40510581809):
+  11 regression tests, shell syntax and official driver checksum passed.
+- [Release CI, 26.08 / rc4](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40510583183):
+  passed; produced exactly five TensorFlow packs with PDSC version `1.26.8-rc4`.
+- [CMSIS-LiteRT matrix](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40511435981):
+  AC6, GCC and CLANG built and passed Corstone-320 U85 execution, including CPU
+  float inference and Ethos-U quantized inference. Logs reported 256 MACs/cycle
+  and `~~~ALL TESTS PASSED~~~`. Tested implementation commit: `1b6613a`.
+
+The attempted [26.05 / rc3 rebuild](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40509920771)
+failed in the existing third-party `packchk` release-history validation (M396):
+`1.26.5-rc3` was placed before the already published `1.26.5` entry. Versioning
+and history generation were deliberately left unchanged. Consequently the
+successful runtime result above qualifies only the tested 26.08 / rc4 candidate,
+not the earlier 1.26.5_rc3 generator profile or untested NPU variants.
