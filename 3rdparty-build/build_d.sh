@@ -12,10 +12,6 @@ if [ ! -d "./src" ]; then
     exit 1
 fi
 
-echo "Build Ethos-U driver pack"
-python3 gen_pack.py --path ethos-u-driver --version 1.99.0 --candidate_rev=$1 --history=../../tensorflow-pack/tensorflow-build/history.txt
-cp ./ethos-u-driver/build/*.pack ../out
-
 echo "Build flatbuffers pack"
 python3 gen_pack.py --path flatbuffers --version 1.99.0 --candidate_rev=$1 --history=../../tensorflow-pack/tensorflow-build/history.txt
 cp ./flatbuffers/build/*.pack ../out

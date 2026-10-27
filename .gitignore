@@ -26,3 +26,6 @@ tensorflow-test-ng/gen/
 /3rdparty-build/gemmlowp/build
 /3rdparty-build/kissfft/build
 /3rdparty-build/ruy/build
+
+__pycache__/
+*.pyc

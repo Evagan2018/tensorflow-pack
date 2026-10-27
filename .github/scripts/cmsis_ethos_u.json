@@ -1,0 +1,7 @@
+{
+  "pack": "ARM::CMSIS-Ethos-U",
+  "version": "1.0.0",
+  "url": "https://github.com/ARM-software/CMSIS-Ethos-U/releases/download/v1.0.0/ARM.CMSIS-Ethos-U.1.0.0.pack",
+  "sha256": "8be2c54403a0d31901f27f97e5f6fda3b04c9a5f870076f2c853286abc3dbac5",
+  "source_commit": "b2b641ee93509777fc7bc0136b6d7975f07ba0cd"
+}

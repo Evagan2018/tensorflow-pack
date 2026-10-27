@@ -1,5 +1,7 @@
 """Regression checks for candidate selection without a CMSIS tool installation."""
 import contextlib
+import hashlib
+from unittest.mock import patch
 import io
 import json
 import tempfile
@@ -19,22 +21,31 @@ class CandidateTests(unittest.TestCase):
         self.packs.mkdir()
         self.checkout = self.root / 'litert'
         for name in candidate.EXPECTED:
-            self.archive(name)
+            self.archive(name, '1.0.0' if name == candidate.DRIVER else '1.26.8-rc3')
+        lock = json.loads(candidate.DRIVER_LOCK.read_text())
+        lock['sha256'] = hashlib.sha256((self.packs / 'ARM.CMSIS-Ethos-U.pack').read_bytes()).hexdigest()
+        self.lock = self.root / 'driver.json'
+        self.lock.write_text(json.dumps(lock))
+        mock = patch.object(candidate, 'DRIVER_LOCK', self.lock)
+        mock.start()
+        self.addCleanup(mock.stop)
         for filename in ['cmsis-litert.csolution.yml', 'Model/model.clayer.yml',
                          'board/Corstone-320/Board-U85.clayer.yml']:
             path = self.checkout / filename
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('solution:\n  packs:\n' + ''.join(
-                f'    - pack: {name}@1.26.2 # retain comment\n'
+                f'    - pack: {candidate.LEGACY_DRIVER if name == candidate.DRIVER else name}@1.26.2 # retain comment\n'
                 for name in sorted(candidate.EXPECTED)) +
-                '    - pack: ARM::CMSIS-NN@8.0.0\n')
+                '    - pack: ARM::CMSIS-NN@8.0.0\n  define:\n    - ETHOSU85\n')
 
     def archive(self, name, version='1.26.8-rc3'):
         vendor, pack = name.split('::')
         with ZipFile(self.packs / f'{vendor}.{pack}.pack', 'w') as archive:
             archive.writestr(f'{vendor}.{pack}.pdsc',
                 f'<package><vendor>{vendor}</vendor><name>{pack}</name>'
-                f'<releases><release version="{version}"/></releases></package>')
+                f'<releases><release version="{version}"/></releases>'
+                '<requirements><packages><package vendor="ARM" name="CMSIS-Ethos-U" '
+                'version="1.0.0:1.0.0"/></packages></requirements></package>')
 
     def prepare(self):
         with contextlib.redirect_stdout(io.StringIO()):
@@ -47,6 +58,8 @@ class CandidateTests(unittest.TestCase):
             self.assertNotIn('@1.26.2', text)
             self.assertIn('@1.26.8-rc3 # retain comment', text)
             self.assertIn('ARM::CMSIS-NN@8.0.0', text)
+            self.assertIn('ARM::CMSIS-Ethos-U@1.0.0', text)
+            self.assertNotIn(candidate.LEGACY_DRIVER, text)
         evidence = json.loads((self.checkout / 'candidate-packs.json').read_text())
         resolved = {'cbuild-pack': {'resolved-packs': [
             {'resolved-pack': f'{item["pack"]}@{item["version"]}'} for item in evidence]}}
@@ -68,6 +81,40 @@ class CandidateTests(unittest.TestCase):
         self.archive('tensorflow::ruy', '1.26.2')
         with self.assertRaisesRegex(ValueError, 'Mixed candidate'):
             self.prepare()
+
+    def test_tampered_driver(self):
+        self.archive(candidate.DRIVER, '1.0.1')
+        with self.assertRaisesRegex(ValueError, 'SHA256 mismatch'):
+            self.prepare()
+
+    def test_legacy_archive_rejected(self):
+        self.archive(candidate.LEGACY_DRIVER)
+        with self.assertRaisesRegex(ValueError, 'Unexpected candidate'):
+            self.prepare()
+
+    def test_prepare_is_idempotent(self):
+        self.prepare()
+        before = {p: p.read_bytes() for p in self.checkout.rglob('*.yml')}
+        self.prepare()
+        self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_failed_prepare_does_not_partially_patch(self):
+        board = self.checkout / 'board/Corstone-320/Board-U85.clayer.yml'
+        board.write_text(board.read_text().replace('ETHOSU85', 'ETHOSU_MACS: 128'))
+        before = {p: p.read_bytes() for p in self.checkout.rglob('*.yml')}
+        with self.assertRaisesRegex(ValueError, 'MACS'):
+            self.prepare()
+        self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_legacy_resolution_rejected(self):
+        self.prepare()
+        evidence = json.loads((self.checkout / 'candidate-packs.json').read_text())
+        entries = [{'resolved-pack': f"{e['pack']}@{e['version']}"} for e in evidence]
+        entries.append({'resolved-pack': candidate.LEGACY_DRIVER + '@1.26.8-rc3'})
+        (self.checkout / 'cmsis-litert.cbuild-pack.yml').write_text(
+            json.dumps({'cbuild-pack': {'resolved-packs': entries}}))
+        with self.assertRaisesRegex(ValueError, 'Legacy driver'):
+            candidate.verify(self.checkout)
 
 
 if __name__ == '__main__':

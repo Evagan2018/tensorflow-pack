@@ -33,7 +33,7 @@ The LiteRT CMSIS Pack relies on the following key software components - all are 
 *   **Flatbuffers**: An efficient cross-platform serialization utility used for handling LiteRT models. 
 *   **KissFFT**: A compact Fast Fourier Transform (FFT) component, sometimes used in audio processing or other signal processing tasks within ML applications.
 *   **Ruy**: A matrix multiplication component, essential for many neural network operations.
-*   **Ethos-U Driver (Optional)**: For systems incorporating an Arm Ethos-U NPU, this driver facilitates hardware-accelerated machine learning, enhancing performance and reducing power consumption.
+*   **CMSIS-Ethos-U 1.0.0**: For systems incorporating an Arm Ethos-U NPU, the separately published `ARM::CMSIS-Ethos-U` pack supplies the driver and facilitates hardware-accelerated machine learning, enhancing performance and reducing power consumption.
 
 ## Examples
 

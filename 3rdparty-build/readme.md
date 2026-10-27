@@ -38,3 +38,11 @@ src_dest: ./src
 
 
 
+
+## Ethos-U dependency
+
+The build produces only flatbuffers, gemmlowp, kissfft and ruy. Together with
+`tensorflow-lite-micro`, these five packs share the existing candidate version.
+`ARM::CMSIS-Ethos-U@1.0.0` is consumed from Arm's published release, not built or
+renumbered here. The test workflow verifies its SHA256 against
+`.github/scripts/cmsis_ethos_u.json` before installation.
