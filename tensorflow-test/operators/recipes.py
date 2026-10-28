@@ -11,6 +11,7 @@ class Recipe:
     atol: float = 1e-5
     rtol: float = 1e-5
     direct: bool = False
+    constants: tuple = ()  # static control operands required during TFLM Prepare
 
 
 def recipes():
@@ -56,7 +57,7 @@ def recipes():
     r['SPLIT'] = Recipe(lambda a: tf.split(a, 2, axis=1), [x])
     r['SPLIT_V'] = Recipe(lambda a: tf.split(a, [1, 3], axis=1), [x])
     r['RESHAPE'] = Recipe(lambda a: tf.reshape(a, [2, 2]), [x])
-    r['EXPAND_DIMS'] = Recipe(tf.expand_dims, [x, np.array(1, np.int32)], direct=True)
+    r['EXPAND_DIMS'] = Recipe(tf.expand_dims, [x, np.array(2, np.int32)], direct=True, constants=(1,))
     r['SQUEEZE'] = Recipe(lambda a: tf.squeeze(a, axis=0), [x], direct=True)
     r['TRANSPOSE'] = Recipe(lambda a: tf.transpose(a, [1, 0]), [np.arange(6, dtype=np.float32).reshape(2, 3)])
     r['REVERSE_V2'] = Recipe(lambda a: tf.reverse(a, [1]), [x])
@@ -67,7 +68,7 @@ def recipes():
     r['MIRROR_PAD'] = Recipe(lambda a: tf.pad(a, [[0, 0], [1, 1]], mode='REFLECT'), [x])
     r['GATHER'] = Recipe(lambda a, b: tf.gather(a, b, axis=1), [x, np.array([3, 1], np.int32)])
     r['GATHER_ND'] = Recipe(tf.gather_nd, [x, np.array([[0, 1], [0, 3]], np.int32)])
-    r['BROADCAST_TO'] = Recipe(tf.broadcast_to, [x, np.array([3, 4], np.int32)], direct=True)
+    r['BROADCAST_TO'] = Recipe(tf.broadcast_to, [x, np.array([3, 4], np.int32)], direct=True, constants=(1,))
     r['CUMSUM'] = Recipe(lambda a: tf.cumsum(a, axis=1), [x])
     r['L2_NORMALIZATION'] = Recipe(lambda a: tf.math.l2_normalize(a, axis=1), [x])
     # Constants are deliberately tiny; the data operand is always a runtime input.
@@ -111,7 +112,7 @@ def recipes():
         ('EMBEDDING_LOOKUP', lambda ids, table: tf.nn.embedding_lookup(table, ids),
          [np.array([2, 0], np.int32), np.arange(12, dtype=np.float32).reshape(3, 4)]),
     ]:
-        r[op] = Recipe(fn, inputs, direct=True)
+        r[op] = Recipe(fn, inputs, direct=True, constants=(0,) if op == 'FILL' else ())
     return r
 
 

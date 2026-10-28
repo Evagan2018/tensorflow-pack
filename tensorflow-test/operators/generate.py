@@ -25,7 +25,7 @@ def leaves(value):
     return list(value) if isinstance(value, (tuple, list)) else [value]
 
 
-def direct_model(name, inputs, expected):
+def direct_model(name, inputs, expected, constants=()):
     """Explicit single-op model for operations otherwise folded/re-written by conversion."""
     model = schema.ModelT()
     model.version = 3
@@ -46,16 +46,21 @@ def direct_model(name, inputs, expected):
         tensor.shape = list(data.shape)
         tensor.type = getattr(schema.TensorType, TYPES[str(data.dtype)][0])
         tensor.buffer = 0
+        if i < len(inputs) and i in constants:
+            buffer = schema.BufferT()
+            buffer.data = np.frombuffer(data.tobytes(), dtype=np.uint8)
+            tensor.buffer = len(model.buffers)
+            model.buffers.append(buffer)
         if data.dtype == np.int8 and name in ('QUANTIZE', 'DEQUANTIZE'):
             tensor.quantization = schema.QuantizationParametersT()
             tensor.quantization.scale = [.25]
             tensor.quantization.zeroPoint = [0]
         graph.tensors.append(tensor)
-    graph.inputs = list(range(len(inputs)))
+    graph.inputs = [i for i in range(len(inputs)) if i not in constants]
     graph.outputs = list(range(len(inputs), len(inputs) + len(expected)))
     op = schema.OperatorT()
     op.opcodeIndex = 0
-    op.inputs, op.outputs = graph.inputs, graph.outputs
+    op.inputs, op.outputs = list(range(len(inputs))), graph.outputs
     option = {'SHAPE': 'ShapeOptions', 'ADD_N': 'AddNOptions',
               'FILL': 'FillOptions', 'ZEROS_LIKE': 'ZerosLikeOptions',
               'SQUEEZE': 'SqueezeOptions', 'EXPAND_DIMS': 'ExpandDimsOptions',
@@ -84,7 +89,7 @@ def make_model(name, recipe):
     inputs = [np.array(x) for x in recipe.inputs]
     eager = [np.array(x) for x in leaves(recipe.fn(*[tf.constant(x) for x in inputs]))]
     if recipe.direct:
-        model = direct_model(name, inputs, eager)
+        model = direct_model(name, inputs, eager, recipe.constants)
     else:
         class Module(tf.Module):
             @tf.function(input_signature=[tf.TensorSpec(x.shape, tf.as_dtype(x.dtype), name=f'x{i}')
@@ -112,7 +117,8 @@ def make_model(name, recipe):
     host.allocate_tensors()
     ins, outs = host.get_input_details(), host.get_output_details()
     if recipe.direct:
-        ordered_inputs, ordered_eager = inputs, eager
+        ordered_inputs = [x for i, x in enumerate(inputs) if i not in recipe.constants]
+        ordered_eager = eager
     else:
         runner = host.get_signature_runner()
         in_map = {detail['index']: inputs[int(key[1:])] for key, detail in runner.get_input_details().items()}
@@ -120,7 +126,7 @@ def make_model(name, recipe):
         del runner  # Release its native interpreter reference before host.invoke().
         ordered_inputs = [in_map[d['index']] for d in ins]
         ordered_eager = [out_map[d['index']] for d in outs]
-    if len(ins) != len(inputs) or len(outs) != len(eager):
+    if len(ins) != len(inputs) - len(recipe.constants) or len(outs) != len(eager):
         raise ValueError('Input/output count changed')
     for detail, data in zip(ins, ordered_inputs):
         if detail['dtype'] != data.dtype or list(detail['shape']) != list(data.shape):
@@ -213,6 +219,8 @@ def generate(checkout, packs):
             (output / f'{case_id}.tflite').write_bytes(model)
             cases.append(dict(id=case_id, operator=name, operators=operators,
                 generator='explicit-flatbuffer' if recipe.direct else 'tensorflow-converter',
+                constant_arguments=[dict(index=i, values=np.array(recipe.inputs[i]).tolist())
+                                    for i in recipe.constants],
                 model_sha256=hashlib.sha256(model).hexdigest(),
                 quantization=quantization(model),
                 inputs=[dict(shape=list(a.shape), dtype=str(a.dtype), values=a.tolist()) for a in inputs],
