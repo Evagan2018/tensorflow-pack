@@ -115,3 +115,28 @@ Host bookkeeping regression tests:
 ```sh
 python -m unittest discover -s tensorflow-test/operators -p 'test_*.py'
 ```
+
+## Verified results — 2026-10-28
+
+[Workflow 40675554477](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40675554477), implementation commit `7a912f9`:
+
+- Normal run: **92/92 cases passed**, no missing records, no timeout, FVP exit 0.
+- Negative control: **ADD alone failed numerically** (maximum absolute error 100);
+  the other **91/91 cases passed**. The control was accepted while its
+  `numerical_pass` remains false.
+- **26 skipped entries** are reported separately (8 built-ins and all 18 custom
+  entries). All 118 inventory entries are accounted for; this is not 100%
+  execution coverage.
+- The [original ADD regression](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40674780097)
+  also passed after extracting the shared consumer setup.
+
+The first sweep exposed incorrect fixture construction for three kernels whose
+shape-control operands must be constant at Prepare time. Their fixtures were
+corrected; errors were not hidden with skips or weakened numerical checks.
+
+To generate a browser-readable report (including an SVG flow) from the downloaded
+workflow artifact:
+
+```sh
+python tensorflow-test/operators/report.py --manifest OperatorTest/manifest.json --results operators-positive.json --output coverage.html
+```

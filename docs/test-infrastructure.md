@@ -60,7 +60,9 @@ float32 ADD model using the Reference CPU kernel, with a numerical verdict and
 a deliberately incorrect golden value as a negative control. See its
 [run instructions](../tensorflow-test/add/README.md) and
 [illustrated explanation](add-test/add-test-explained.html).
-The complete operator-suite generator remains future work. The existing LiteRT
+The generated Reference CPU suite now covers 92 built-in operator cases and
+accounts for 26 explicit skips. See [operator-suite instructions and boundaries](../tensorflow-test/operators/README.md).
+Stateful/control-flow, custom signal and NPU qualification remain future work. The existing LiteRT
 AI-layer generator and integration example remain in use. A build success alone
 does not qualify numerical correctness or NPU execution.
 
@@ -89,3 +91,12 @@ pack-resolution verification and FVP numerical execution using `1.26.8-rc4`.
 The deliberately incorrect expected-value control was also detected. This is
 one float32 ADD case with shape `[1, 4]`, not full operator coverage.
 See the [explanation and SVG](add-test/add-test-explained.html).
+
+## Expanded Reference CPU suite (2026-10-28)
+
+[Workflow 40675554477](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40675554477) passed all **92 generated operator cases**
+using 1.26.8-rc4, GCC and Corstone-320. The negative-control rebuild changed only
+ADD's first expected value: ADD failed as intended and the other 91 cases passed.
+JSON and JUnit reports retain all 26 explicit skips, distinct from passing cases.
+The resolver inventory has 118 entries; no claim is made that every shape, type
+or execution backend is covered. Implementation tested: `7a912f9`.
