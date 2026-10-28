@@ -109,6 +109,9 @@ def generate(checkout):
         - Heap: 65536
   misc:
     - for-compiler: GCC
+      CPP:
+        - -fno-exceptions
+        - -fno-rtti
       Link:
         - -Wl,-u,_printf_float
   components:

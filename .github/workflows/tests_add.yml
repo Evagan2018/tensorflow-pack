@@ -120,6 +120,8 @@ jobs:
             litert/*.log
             litert/positive.json
             litert/negative.json
+            litert/positive.elf
+            litert/negative.elf
             litert/candidate-packs.json
             litert/example-commit.txt
             litert/*.cbuild*.yml

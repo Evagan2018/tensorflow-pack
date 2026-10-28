@@ -1,7 +1,9 @@
 """Run a single ADD image with a wall timeout and strict, case-specific verdict."""
 import argparse
+import hashlib
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -48,7 +50,9 @@ def main():
     report = dict(case='add_float32_reference', numerical_pass=passed,
                   negative_control=args.expect_numerical_failure,
                   negative_control_detected=negative_detected,
-                  returncode=code, timed_out=timed_out, command=command)
+                  returncode=code, timed_out=timed_out, command=command,
+                  image_sha256=hashlib.sha256(images[0].read_bytes()).hexdigest())
+    shutil.copyfile(images[0], root / f'{args.name}.elf')
     (root / f'{args.name}.log').write_text(log)
     (root / f'{args.name}.json').write_text(json.dumps(report, indent=2))
     print(log)
