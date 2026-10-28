@@ -89,6 +89,11 @@ def recipes():
                            [np.array([[-64., -.5, .25, 64.]], np.float32)], direct=True)
     r['DEQUANTIZE'] = Recipe(lambda a: tf.cast(a, tf.float32) * .25,
                              [np.array([[-128, -2, 1, 127]], np.int8)], direct=True)
+    r['DYNAMIC_UPDATE_SLICE'] = Recipe(
+        lambda a, update, start: tf.tensor_scatter_nd_update(
+            a, tf.stack([start, start + tf.constant([0, 1], tf.int32)]), tf.reshape(update, [2])),
+        [np.array([[1., 2., 3., 4.]], np.float32), np.array([[8., 9.]], np.float32),
+         np.array([0, 1], np.int32)], direct=True)
     r['RESIZE_BILINEAR'] = Recipe(lambda a: tf.image.resize(a, [2, 2], method='bilinear'), [image])
     r['RESIZE_NEAREST_NEIGHBOR'] = Recipe(lambda a: tf.image.resize(a, [2, 2], method='nearest'), [image])
     r['SPACE_TO_DEPTH'] = Recipe(lambda a: tf.nn.space_to_depth(a, 2), [image])
@@ -121,7 +126,6 @@ SKIPS = {
     'WHILE': 'Needs multi-subgraph state/termination fixtures including zero and multiple iterations.',
     'SVDF': 'Needs a stateful sequence fixture with controlled feature/time weights and per-step expected outputs.',
     'UNIDIRECTIONAL_SEQUENCE_LSTM': 'Needs recurrent-state and gate-weight fixtures; add sequence and state-reset checks.',
-    'DYNAMIC_UPDATE_SLICE': 'Needs an explicit indexed-update flatbuffer fixture and reviewed boundary-index cases.',
     'CIRCULAR_BUFFER': 'Custom stateful buffer protocol needs a multi-invocation fixture and independent reference.',
     'TFLM_DECODE': 'Custom compressed-data decoder requires format-specific payload fixtures and decoder reference.',
     'TFLite_Detection_PostProcess': 'Custom detection options and multi-output box/score fixtures require dedicated reference validation.',

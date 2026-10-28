@@ -34,6 +34,7 @@ def direct_model(name, inputs, expected):
     code = schema.OperatorCodeT()
     code.builtinCode = getattr(schema.BuiltinOperator, name)
     code.deprecatedBuiltinCode = min(code.builtinCode, 127)
+    # The host resolver starts BROADCAST_TO at v2 (v1 was rolled back).
     code.version = 2 if name == 'BROADCAST_TO' else 1
     model.operatorCodes = [code]
     graph = schema.SubGraphT()
@@ -171,6 +172,20 @@ def emit(cases, methods, output):
     (output / 'resolver.h').write_text(resolver)
 
 
+def quantization(model_bytes):
+    graph = schema.Model.GetRootAsModel(model_bytes, 0).Subgraphs(0)
+    result = {}
+    for name, indices in [('inputs', graph.InputsAsNumpy()), ('outputs', graph.OutputsAsNumpy())]:
+        result[name] = []
+        for index in indices:
+            q = graph.Tensors(int(index)).Quantization()
+            result[name].append(dict(
+                scales=[q.Scale(i) for i in range(q.ScaleLength())] if q else [],
+                zero_points=[q.ZeroPoint(i) for i in range(q.ZeroPointLength())] if q else [],
+                dimension=q.QuantizedDimension() if q else 0))
+    return result
+
+
 def generate(checkout, packs):
     if tf.__version__ != '2.18.0' or np.__version__ != '2.0.2':
         raise ValueError('Use the pinned TensorFlow/NumPy environment')
@@ -199,6 +214,7 @@ def generate(checkout, packs):
             cases.append(dict(id=case_id, operator=name, operators=operators,
                 generator='explicit-flatbuffer' if recipe.direct else 'tensorflow-converter',
                 model_sha256=hashlib.sha256(model).hexdigest(),
+                quantization=quantization(model),
                 inputs=[dict(shape=list(a.shape), dtype=str(a.dtype), values=a.tolist()) for a in inputs],
                 expected=[dict(shape=list(a.shape), dtype=str(a.dtype), values=a.tolist()) for a in expected],
                 atol=recipe.atol, rtol=recipe.rtol, _data=(model, inputs, expected)))
