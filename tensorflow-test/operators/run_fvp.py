@@ -16,6 +16,11 @@ def evaluate(manifest, log, returncode, timed_out=False, negative=False):
         raise ValueError('Empty/duplicate manifest cases')
     pattern = r'OPS_CASE:([^:]+):(PASS|FAIL):checks=(\d+):max_abs=([^:]+):reason=([^:]+)'
     actual, errors = {}, []
+    if 'matrix' in manifest:
+        matrix = manifest['matrix']
+        identities = re.findall(r'^MATRIX_TARGET:part=([0-9a-f]+):mve=(\d+)$', log, re.M)
+        if len(identities) != 1 or int(identities[0][0], 16) != matrix['part'] or bool(int(identities[0][1]) & 1) != matrix['mve']:
+            errors.append('Missing or incorrect runtime core/Helium identity')
     for line in log.splitlines():
         if line.startswith('OPS_FATAL:'):
             errors.append(line)
@@ -65,7 +70,8 @@ def main():
     images = sorted(set(root.glob('out/**/cmsis-litert.elf')) | set(root.glob('out/**/cmsis-litert.axf')))
     if len(images) != 1:
         p.error(f'Expected one executable, found {len(images)}')
-    command = ['FVP_Corstone_SSE-320', '-f', str(root / 'board/Corstone-320/fvp_config.txt'),
+    fvp = manifest.get('fvp', dict(executable='FVP_Corstone_SSE-320', config='board/Corstone-320/fvp_config.txt'))
+    command = [fvp['executable'], '-f', str(root / fvp['config']),
                '-a', str(images[0]), '--simlimit', '30', '--stat']
     timed_out = False
     try:
@@ -77,7 +83,7 @@ def main():
             return data.decode(errors='replace') if isinstance(data, bytes) else (data or '')
         log, code = decode(error.stdout) + decode(error.stderr), None
     report = evaluate(manifest, log, code, timed_out, args.negative)
-    report.update(image_sha256=hashlib.sha256(images[0].read_bytes()).hexdigest(), command=command)
+    report.update(matrix=manifest.get('matrix'), image_sha256=hashlib.sha256(images[0].read_bytes()).hexdigest(), command=command)
     for row in report['coverage']:
         if row['status'] == 'planned':
             found = report['cases'].get(row['operator'].lower() + '_reference')

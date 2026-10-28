@@ -55,6 +55,16 @@ bool run(const TestCase& c, size_t& checks, float& max_error, const char*& reaso
           if (error > c.atol + c.rtol * std::fabs(expected)) pass = false;
         }
       }
+    } else if (t->type == kTfLiteInt8) {
+      for (size_t j = 0; j < elements; ++j) {
+        int expected = static_cast<signed char>(d.bytes[j]);
+        if (OPS_NEGATIVE_CONTROL && c.negative_control_target && i == 0 && j == 0)
+          expected += expected > 0 ? -100 : 100;
+        int delta = int(t->data.int8[j]) - expected;
+        if (delta < 0) delta = -delta;
+        if (delta > max_error) max_error = float(delta);
+        if (delta != 0) pass = false;
+      }
     } else if (memcmp(t->data.raw, d.bytes, d.size) != 0) {
       pass = false;
     }

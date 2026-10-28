@@ -192,7 +192,7 @@ def quantization(model_bytes):
     return result
 
 
-def generate(checkout, packs):
+def generate(checkout, packs, target=None, compiler="GCC"):
     if tf.__version__ != '2.18.0' or np.__version__ != '2.0.2':
         raise ValueError('Use the pinned TensorFlow/NumPy environment')
     evidence = json.loads((checkout / 'candidate-packs.json').read_text())
@@ -204,7 +204,19 @@ def generate(checkout, packs):
         raise ValueError('Candidate archive changed after preparation')
     rows = inventory(archive)
     registry = recipes()
-    coverage = reconcile(rows, registry, SKIPS)
+    skips = dict(SKIPS)
+    model_builder = make_model
+    if target:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'matrix'))
+        from profile import OPERATORS, TARGETS, COMPILERS
+        from quantize import make_model as model_builder
+        if target not in TARGETS or compiler not in COMPILERS:
+            raise ValueError('Unknown target/compiler')
+        if not OPERATORS <= set(registry): raise ValueError('Unknown int8 recipe')
+        skips.update({n: 'Outside the reviewed full-int8 fixture scope; existing Reference coverage is separate.'
+                      for n in registry if n not in OPERATORS})
+        registry = {n: r for n, r in registry.items() if n in OPERATORS}
+    coverage = reconcile(rows, registry, skips)
     output = checkout / 'OperatorTest'
     output.mkdir(exist_ok=True)
     # Existing output is not used as input: only cases generated successfully
@@ -214,7 +226,7 @@ def generate(checkout, packs):
     cases, errors, used = [], [], set()
     for name, recipe in sorted(registry.items()):
         try:
-            model, inputs, expected, operators = make_model(name, recipe)
+            model, inputs, expected, operators = model_builder(name, recipe)
             case_id = name.lower() + '_reference'
             (output / f'{case_id}.tflite').write_bytes(model)
             cases.append(dict(id=case_id, operator=name, operators=operators,
@@ -225,7 +237,7 @@ def generate(checkout, packs):
                 quantization=quantization(model),
                 inputs=[dict(shape=list(a.shape), dtype=str(a.dtype), values=a.tolist()) for a in inputs],
                 expected=[dict(shape=list(a.shape), dtype=str(a.dtype), values=a.tolist()) for a in expected],
-                atol=recipe.atol, rtol=recipe.rtol, _data=(model, inputs, expected)))
+                atol=0.0 if target else recipe.atol, rtol=0.0 if target else recipe.rtol, _data=(model, inputs, expected)))
             used.update(op['operator'] for op in operators)
             print(f'GENERATED {name}', flush=True)
         except Exception as error:
@@ -240,7 +252,7 @@ def generate(checkout, packs):
     emit(cases, {methods[n] for n in used}, output)
     for filename in ['main.cpp', 'types.h', 'control.h']:
         shutil.copyfile(Path(__file__).with_name(filename), output / filename)
-    (output / 'manifest.json').write_text(json.dumps(dict(profile='1.26.8-rc4-reference',
+    (output / 'manifest.json').write_text(json.dumps(dict(profile='1.26.8-rc4-int8' if target else '1.26.8-rc4-reference',
         converter=tf.__version__, numpy=np.__version__, cases=cases, coverage=coverage, packs=evidence,
         arena_bytes=131072, scope='One reviewed case per executed operator; not exhaustive dtype/shape coverage'), indent=2))
     write_consumer(checkout, evidence)
@@ -249,12 +261,17 @@ def generate(checkout, packs):
                        .replace('ADD test', 'Operator suite').replace('./AddTest/main.cpp', './OperatorTest/main.cpp'))
     solution = checkout / 'cmsis-litert.csolution.yml'
     solution.write_text(solution.read_text().replace('optimize: debug', 'optimize: size'))
-    print(f'Generated {len(cases)} cases; {len(SKIPS)} explicit skips; {len(rows)} inventory entries')
+    if target:
+        from consumer_matrix import configure
+        configure(checkout, evidence, target, compiler)
+    print(f'Generated {len(cases)} cases; {len(skips)} explicit skips; {len(rows)} inventory entries')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--checkout', type=Path, required=True)
     parser.add_argument('--packs', type=Path, required=True)
+    parser.add_argument('--target', choices=['M4-CMSISNN', 'M55-CMSISNN'])
+    parser.add_argument('--compiler', choices=['GCC', 'AC6', 'CLANG'], default='GCC')
     args = parser.parse_args()
-    generate(args.checkout, args.packs)
+    generate(args.checkout, args.packs, args.target, args.compiler)
