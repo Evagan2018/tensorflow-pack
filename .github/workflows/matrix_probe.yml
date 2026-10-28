@@ -1,0 +1,40 @@
+name: Matrix target and compiler probe
+on:
+  push:
+    branches: [test-infrastructure-cmsis-ethos-u]
+    paths: ['.github/workflows/matrix_probe.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - uses: ARM-software/cmsis-actions/vcpkg@v1
+        with:
+          config: './tensorflow-test/matrix/vcpkg-configuration.json'
+      - uses: ARM-software/cmsis-actions/armlm@v1
+      - name: Record available tools and model parameters
+        env:
+          PYTHONHOME: ${{ env.pythonLocation }}
+        run: |
+          mkdir -p probe
+          arm-none-eabi-gcc --version > probe/gcc.txt
+          armclang --version > probe/ac6.txt
+          clang --version > probe/clang.txt
+          cbuild list toolchains > probe/toolchains.txt
+          FVP_Corstone_SSE-320 --list-params > probe/sse320-parameters.txt
+          FVP_MPS2_Cortex-M55 --list-params > probe/m55-parameters.txt
+          FVP_MPS2_Cortex-M4 --list-params > probe/m4-parameters.txt
+          cpackget add ARM::Cortex_DFP -a
+          cpackget list > probe/packs.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: matrix-probe
+          path: probe/
