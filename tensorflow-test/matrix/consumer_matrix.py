@@ -45,7 +45,7 @@ int main(void) {
     sol['compiler'] = compiler + '@' + COMPILERS[compiler]
     sol['packs'] = [dict(pack=e['pack'] + '@' + e['version']) for e in evidence] + [
         dict(pack='ARM::CMSIS@6.4.0'), dict(pack='ARM::CMSIS-Compiler@2.1.0'),
-        dict(pack='ARM::CMSIS-NN@8.0.0'), dict(pack='ARM::Cortex_DFP@1.2.0')]
+        dict(pack='ARM::CMSIS-NN@7.0.0'), dict(pack='ARM::Cortex_DFP@1.2.0')]
     sol['target-types'] = [dict(type=target, device=spec['device'])]
     sol['build-types'] = [dict(type='Release', optimize='size', debug='on')]
     (root / 'cmsis-litert.csolution.yml').write_text(yaml.safe_dump(solution, sort_keys=False))
@@ -62,7 +62,7 @@ int main(void) {
     proj['groups'].append(dict(group='Matrix board', files=[dict(file='./MatrixBoard/main.c'),
                                                            dict(file='./MatrixBoard/retarget_stdio.c')]))
     proj['linker'] = [dict(regions='./MatrixBoard/regions.h')]
-    proj['misc'] += [{'for-compiler': c, 'CPP': ['-fno-exceptions', '-fno-rtti']} for c in ['AC6', 'CLANG']]
+    proj['misc'] += [{'for-compiler': c, 'CPP': ['-fno-exceptions', '-fno-rtti', '-fno-fast-math']} for c in ['AC6', 'CLANG']]
     (root / 'cmsis-litert.cproject.yml').write_text(yaml.safe_dump(project, sort_keys=False))
     manifest_path = root / 'OperatorTest/manifest.json'
     manifest = json.loads(manifest_path.read_text())

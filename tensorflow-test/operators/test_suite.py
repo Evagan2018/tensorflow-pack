@@ -26,6 +26,13 @@ class VerdictTests(unittest.TestCase):
         self.bad = self.good.replace('add_reference:PASS', 'add_reference:FAIL').replace(
             'max_abs=0:reason=none', 'max_abs=100:reason=numerical', 1).replace('2/2', '1/2')
 
+    def test_matrix_requires_correct_runtime_core_and_helium(self):
+        self.manifest['matrix'] = dict(part=0xd22, mve=True)
+        identity = 'MATRIX_TARGET:part=d22:mve=3\n'
+        self.assertTrue(evaluate(self.manifest, identity + self.good, 0)['accepted'])
+        for header in ['', identity * 2, identity.replace('d22', 'd23'), identity.replace('mve=3', 'mve=0')]:
+            self.assertFalse(evaluate(self.manifest, header + self.good, 0)['accepted'])
+
     def test_positive_and_deliberate_negative(self):
         self.assertTrue(evaluate(self.manifest, self.good, 0)['numerical_pass'])
         result = evaluate(self.manifest, self.bad, 0, negative=True)

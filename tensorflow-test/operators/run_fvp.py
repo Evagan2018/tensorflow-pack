@@ -86,7 +86,8 @@ def main():
     report.update(matrix=manifest.get('matrix'), image_sha256=hashlib.sha256(images[0].read_bytes()).hexdigest(), command=command)
     for row in report['coverage']:
         if row['status'] == 'planned':
-            found = report['cases'].get(row['operator'].lower() + '_reference')
+            case_id = next(c['id'] for c in manifest['cases'] if c['operator'] == row['operator'])
+            found = report['cases'].get(case_id)
             row['status'] = found['status'].lower() if found else 'missing'
     (root / f'{args.name}.log').write_text(log)
     # Non-finite deltas are represented as null in the JSON evidence.

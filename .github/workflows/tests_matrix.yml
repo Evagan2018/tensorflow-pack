@@ -67,6 +67,8 @@ jobs:
           exit 1
 
       - name: Install tools
+        env:
+          TMPDIR: ${{ runner.temp }}
         uses: ARM-software/cmsis-actions/vcpkg@v1
         with:
           config: './pack-ci/tensorflow-test/matrix/vcpkg-configuration.json'
@@ -110,6 +112,9 @@ jobs:
           cbuild cmsis-litert.csolution.yml --active ${{ matrix.target }} --toolchain ${{ matrix.compiler }} --packs --update-rte 2>&1 | tee build.log
           python ../pack-ci/.github/scripts/litert_candidate.py verify --checkout .
 
+      - name: Verify linked CMSIS-NN and Helium code
+        run: python ../pack-ci/tensorflow-test/matrix/binary_audit.py --checkout .
+
       - name: Execute every manifest case and require numerical passes
         env:
           PYTHONHOME: ${{ env.pythonLocation }}
@@ -150,3 +155,5 @@ jobs:
             litert/compiler-packages.txt
             litert/tmp/**/*.map
             litert/out/**/*.elf
+            litert/binary-audit.json
+            litert/binary-disassembly.txt

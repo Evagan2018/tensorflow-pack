@@ -227,7 +227,7 @@ def generate(checkout, packs, target=None, compiler="GCC"):
     for name, recipe in sorted(registry.items()):
         try:
             model, inputs, expected, operators = model_builder(name, recipe)
-            case_id = name.lower() + '_reference'
+            case_id = name.lower() + ('_int8' if target else '_reference')
             (output / f'{case_id}.tflite').write_bytes(model)
             cases.append(dict(id=case_id, operator=name, operators=operators,
                 generator='explicit-flatbuffer' if recipe.direct else 'tensorflow-converter',
