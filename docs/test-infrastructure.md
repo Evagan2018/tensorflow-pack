@@ -54,10 +54,15 @@ CMSIS-LiteRT FVP tests and their shared tools remain.
 
 ## Scope
 
-This change implements the driver replacement and AVH retirement. It does not
-implement the separately proposed operator-model generator or claim new
-operator/shape/dtype coverage. The existing LiteRT AI-layer generator remains
-in use. A build success alone does not qualify the new driver at runtime.
+The driver replacement and AVH retirement are implemented. The first operator
+test is now implemented separately in `tensorflow-test/add`: a generated
+float32 ADD model using the Reference CPU kernel, with a numerical verdict and
+a deliberately incorrect golden value as a negative control. See its
+[run instructions](../tensorflow-test/add/README.md) and
+[illustrated explanation](add-test/add-test-explained.html).
+The complete operator-suite generator remains future work. The existing LiteRT
+AI-layer generator and integration example remain in use. A build success alone
+does not qualify numerical correctness or NPU execution.
 
 ## Validation on 2026-10-27
 
@@ -76,3 +81,11 @@ failed in the existing third-party `packchk` release-history validation (M396):
 and history generation were deliberately left unchanged. Consequently the
 successful runtime result above qualifies only the tested 26.08 / rc4 candidate,
 not the earlier 1.26.5_rc3 generator profile or untested NPU variants.
+
+## First generated operator test (2026-10-28)
+
+The [ADD workflow](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40668174880) passed generation, Reference CPU compilation,
+pack-resolution verification and FVP numerical execution using `1.26.8-rc4`.
+The deliberately incorrect expected-value control was also detected. This is
+one float32 ADD case with shape `[1, 4]`, not full operator coverage.
+See the [explanation and SVG](add-test/add-test-explained.html).
