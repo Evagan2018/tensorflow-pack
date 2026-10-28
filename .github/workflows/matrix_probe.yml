@@ -1,8 +1,5 @@
 name: Matrix target and compiler probe
 on:
-  push:
-    branches: [test-infrastructure-cmsis-ethos-u]
-    paths: ['.github/workflows/matrix_probe.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,20 +18,20 @@ jobs:
         with:
           config: './tensorflow-test/matrix/vcpkg-configuration.json'
       - uses: ARM-software/cmsis-actions/armlm@v1
-      - name: Trace existing firmware startup
+      - name: Record available tools and model parameters
         env:
           PYTHONHOME: ${{ env.pythonLocation }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p probe
-          gh run download 40698354144 -n int8-M4-CMSISNN-AC6 -D m4
-          gh run download 40698354144 -n int8-M55-CMSISNN-AC6 -D m55
-          find .vcpkg -iname '*Tarmac*' > probe/plugins.txt
-          plugin=$(find .vcpkg -name 'TarmacTrace.so' | head -1)
-          test -n "$plugin"
-          FVP_MPS2_Cortex-M4 --plugin "$plugin" --list-params > probe/trace-parameters.txt
-          FVP_MPS2_Cortex-M4 --plugin "$plugin" -C TRACE.TarmacTrace.trace-file=probe/m4-trace.txt -f m4/MatrixBoard/fvp_config.txt -a m4/operators-positive.elf --simlimit 0.01 > probe/m4.log 2>&1
-          FVP_MPS2_Cortex-M55 --plugin "$plugin" -C TRACE.TarmacTrace.trace-file=probe/m55-trace.txt -f m55/MatrixBoard/fvp_config.txt -a m55/operators-positive.elf --simlimit 0.01 > probe/m55.log 2>&1
+          arm-none-eabi-gcc --version > probe/gcc.txt
+          armclang --version > probe/ac6.txt
+          clang --version > probe/clang.txt
+          cbuild list toolchains > probe/toolchains.txt
+          FVP_Corstone_SSE-320 --list-params > probe/sse320-parameters.txt
+          FVP_MPS2_Cortex-M55 --list-params > probe/m55-parameters.txt
+          FVP_MPS2_Cortex-M4 --list-params > probe/m4-parameters.txt
+          cpackget add ARM::Cortex_DFP -a
+          cpackget list > probe/packs.txt
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -100,3 +100,27 @@ ADD's first expected value: ADD failed as intended and the other 91 cases passed
 JSON and JUnit reports retain all 26 explicit skips, distinct from passing cases.
 The resolver inventory has 118 entries; no claim is made that every shape, type
 or execution backend is covered. Implementation tested: `7a912f9`.
+
+
+## Full-int8 compiler/core matrix (2026-10-28)
+
+The [matrix implementation](../tensorflow-test/matrix/README.md) adds 39 full-int8
+fixtures across Cortex-M4 CMSIS-NN and Cortex-M55 CMSIS-NN with Helium, using
+GCC package 15.3.2, AC6 6.24 and LLVM 23.1.0. The exact M55 + Ethos-U85 target
+remains pending user identification; no M85 substitution is made. The requested
+nine cells are retained in `tensorflow-test/matrix/requested-matrix.json`.
+
+The [qualification run](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40700594420)
+exposes a RELU6 int8 quantization discrepancy in the candidate's generic kernel.
+The host golden is preserved and the failing regression remains enabled.
+This is not a passing int8 pack qualification. The generator rejects floating
+fallback tensors and verifies the intended operator; firmware checks the core,
+while a binary audit checks CMSIS-NN symbols and M55 integer Helium instructions.
+
+The [Reference suite regression](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40700594503)
+still passes all 92 cases and its negative control after these shared-runner changes.
+Release versioning and candidate pack contents remain unchanged.
+
+Recorded outcome: **38/39 cases passed in each of six CPU/compiler cells**;
+only RELU6 failed (maximum integer error 127). ADD corruption was detected in
+all six negative runs. All 39 model hashes and goldens match across the matrix.
