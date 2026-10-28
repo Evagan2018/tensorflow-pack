@@ -61,6 +61,8 @@ jobs:
           exit 1
 
       - name: Install tools
+        env:
+          TMPDIR: ${{ runner.temp }}
         uses: ARM-software/cmsis-actions/vcpkg@v1
         with:
           config: './litert/vcpkg-configuration.json'

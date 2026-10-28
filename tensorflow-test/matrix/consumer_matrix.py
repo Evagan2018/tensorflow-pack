@@ -14,10 +14,22 @@ def configure(root, evidence, target, compiler):
     shutil.copyfile(root / 'board/Corstone-320/retarget_stdio.c', board / 'retarget_stdio.c')
     regions = (source / f"Target/{spec['folder']}/RTE/Device/{spec['device']}/regions_{spec['device']}.h").read_text()
     regions = regions.replace('__STACK_SIZE 0x00000400', '__STACK_SIZE 0x00004000')
+    if spec['mve']:
+        # Dedicated simulation configuration: 2 MiB ITCM, 256 KiB DTCM,
+        # bit-28 secure aliases. Keep the linker map and FVP model in agreement.
+        regions = regions.replace('__ROM0_SIZE 0x00070000', '__ROM0_SIZE 0x00200000')
     (board / 'regions.h').write_text(regions)
     config = (source / f"Target/{spec['folder']}/fvp_config.txt").read_text()
     # Use linker-owned heap/stack. Do not override them with old semihosting ranges.
     config = '\n'.join(l for l in config.splitlines() if not any(s in l for s in ('heap_', 'stack_')))
+    if spec['mve']:
+        config = ('cpu0.semihosting-enable=1\n'
+                  'cpu0.CFGMEMALIAS=16\ncpu0.CFGITCMSZ=12\ncpu0.CFGDTCMSZ=9\n'
+                  'cpu0.MVE=2\ncpu0.FPU=1\n'
+                  'fvp_mps2.telnetterminal0.start_telnet=0\n'
+                  'fvp_mps2.mps2_visualisation.disable-visualisation=1')
+    else:
+        config = config.replace('armcortexm4ct.vfp-present=0', 'armcortexm4ct.vfp-present=1')
     (board / 'fvp_config.txt').write_text(config + '\n')
     startup = r'''#include <stdio.h>
 #include "RTE_Components.h"
