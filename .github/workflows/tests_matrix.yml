@@ -113,6 +113,7 @@ jobs:
           python ../pack-ci/.github/scripts/litert_candidate.py verify --checkout .
 
       - name: Verify linked CMSIS-NN and Helium code
+        id: audit
         run: python ../pack-ci/tensorflow-test/matrix/binary_audit.py --checkout .
 
       - name: Execute every manifest case and require numerical passes
@@ -121,6 +122,8 @@ jobs:
         run: python ../pack-ci/tensorflow-test/operators/run_fvp.py --checkout . --name operators-positive
 
       - name: Corrupt one expected value and rebuild
+        id: negative_build
+        if: ${{ !cancelled() && steps.audit.outcome == 'success' }}
         run: |
           cp OperatorTest/control.h OperatorTest/control.positive.h
           python ../pack-ci/tensorflow-test/operators/negative_control.py --header OperatorTest/control.h
@@ -128,6 +131,7 @@ jobs:
           python ../pack-ci/.github/scripts/litert_candidate.py verify --checkout .
 
       - name: Require the numerical checker to detect the wrong expected value
+        if: ${{ !cancelled() && steps.negative_build.outcome == 'success' }}
         env:
           PYTHONHOME: ${{ env.pythonLocation }}
         run: python ../pack-ci/tensorflow-test/operators/run_fvp.py --checkout . --name operators-negative --negative

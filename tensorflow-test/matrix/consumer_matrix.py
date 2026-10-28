@@ -75,6 +75,9 @@ int main(void) {
                                                            dict(file='./MatrixBoard/retarget_stdio.c')]))
     proj['linker'] = [dict(regions='./MatrixBoard/regions.h')]
     proj['misc'] += [{'for-compiler': c, 'CPP': ['-fno-exceptions', '-fno-rtti', '-fno-fast-math']} for c in ['AC6', 'CLANG']]
+    # FVP starts at the ELF entry. AC6 otherwise selects __main and bypasses
+    # SystemInit, causing a NOCP fault at the C library's first FP instruction.
+    next(m for m in proj['misc'] if m['for-compiler'] == 'AC6')['Link'] = ['--entry=Reset_Handler']
     (root / 'cmsis-litert.cproject.yml').write_text(yaml.safe_dump(project, sort_keys=False))
     manifest_path = root / 'OperatorTest/manifest.json'
     manifest = json.loads(manifest_path.read_text())

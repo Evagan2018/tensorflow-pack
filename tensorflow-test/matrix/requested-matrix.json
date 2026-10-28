@@ -1,0 +1,33 @@
+{
+  "input_format": "int8",
+  "baseline": "1.26.8-rc4",
+  "toolchains": {
+    "GCC": "15.3.2",
+    "AC6": "6.24.0",
+    "CLANG": "23.1.0"
+  },
+  "targets": [
+    {
+      "id": "M4-CMSISNN",
+      "core": "Cortex-M4",
+      "backend": "CMSIS-NN",
+      "model": "FVP_MPS2_Cortex-M4",
+      "readiness": "implemented"
+    },
+    {
+      "id": "M55-CMSISNN",
+      "core": "Cortex-M55",
+      "backend": "CMSIS-NN with Helium",
+      "model": "FVP_MPS2_Cortex-M55",
+      "readiness": "implemented"
+    },
+    {
+      "id": "M55-U85",
+      "core": "Cortex-M55",
+      "backend": "Ethos-U85",
+      "model": null,
+      "readiness": "awaiting-user-target",
+      "reason": "User retained the exact M55 + U85 requirement. Standard Corstone-320 FVP is M85 + U85; do not substitute."
+    }
+  ]
+}

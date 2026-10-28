@@ -63,7 +63,11 @@ bool run(const TestCase& c, size_t& checks, float& max_error, const char*& reaso
         int delta = int(t->data.int8[j]) - expected;
         if (delta < 0) delta = -delta;
         if (delta > max_error) max_error = float(delta);
-        if (delta != 0) pass = false;
+        if (delta != 0) {
+          if (pass) printf("OPS_MISMATCH:%s:output=%u:index=%u:expected=%d:actual=%d\n",
+                           c.id, unsigned(i), unsigned(j), expected, int(t->data.int8[j]));
+          pass = false;
+        }
       }
     } else if (memcmp(t->data.raw, d.bytes, d.size) != 0) {
       pass = false;
