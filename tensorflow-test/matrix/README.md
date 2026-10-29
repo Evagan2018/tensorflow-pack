@@ -1,6 +1,18 @@
 # Full-int8 compiler/core matrix
 
-The requested matrix is recorded in `requested-matrix.json`. Two CPU targets are implemented with GCC 15.3.2, AC6 6.24.0 and Arm LLVM 23.1.0 (six jobs). The exact **Cortex-M55 + Ethos-U85** target is pending user identification; its three cells are **not executed**, not passing. Corstone-320's standard M85 + U85 FVP is not a substitute.
+The requested matrix is recorded in `requested-matrix.json`: Cortex-M4 CMSIS-NN, Cortex-M55 CMSIS-NN with Helium, and **Cortex-M85 + Ethos-U85 with CMSIS-NN CPU fallback**, each with GCC 15.3.2, AC6 6.24.0 and Arm LLVM 23.1.0 (nine jobs). On 29 October 2026 the user authorized replacing the previously unexecuted M55 + U85 target with the standard Corstone-320 M85 + U85 FVP.
+
+## Ethos-U85 path and performance expectations
+
+`vela.py` compiles each original int8 fixture using Vela 5.1.0, `ethos-u85-256`, `Ethos_U85_SYS_DRAM_Mid` and `Shared_Sram`. Original models remain under `OperatorTest/pre-vela/`; Vela outputs and logs remain under `OperatorTest/vela/`. The original host goldens remain unchanged. Ordered input/output shapes, types and quantization must match after compilation.
+
+`consumer_u85.py` selects the TensorFlow Ethos-U kernel variant, CMSIS-NN 7.0.0 for CPU fallback, and the existing Corstone-320 board with ARM::CMSIS-Ethos-U. Firmware checks M85 CPUID/MVE and records NPU completion interrupts around each invocation. The host requires this evidence for every delegated case, rejects duplicates/missing records, and verifies zero NPU interrupts for CPU-only cases. The binary audit requires an Ethos-U invocation function; CPU CMSIS-NN/MVE symbols are informational for this target because Vela can remove all optimized CPU operations.
+
+Generation places 34 of these small fixtures on the NPU and leaves five CPU-only: BATCH_TO_SPACE_ND, DEPTH_TO_SPACE, SPACE_TO_BATCH_ND, SPACE_TO_DEPTH and STRIDED_SLICE. These are observed routes for these fixtures, not universal operator support claims. Numerical execution is qualified separately by the workflow results.
+
+This suite measures correctness and execution routing, not hardware speed. The former pending row supplied no evidence of equal M55/U85 performance. CMSIS-NN executes on the CPU; Vela and the Ethos-U driver enable NPU work. A faster M85 can improve CPU work but does not itself increase the throughput of an unchanged U85. Small fixtures can be dominated by dispatch overhead.
+
+For performance qualification, compare M55 CPU-only with M85 CPU-only, and M85 CPU-only with M85 + U85, using representative convolution/fully-connected and end-to-end workloads. The M85 CPU-only benchmark is a proposed control, not a result from this nine-cell matrix. Keep model/input identity, clocks, compiler optimization, NPU MAC count, memory placement and cache conditions controlled; report repeated inference latency separately from initialization. Use hardware or a validated timing model. [Arm's ML Developers Guide, page 36](https://documentation-service.arm.com/static/6821edae8f79851ff2c3e485) explains that processor FVPs are not cycle accurate and mixed CPU/NPU timing cannot be treated as hardware latency.
 
 ## Version and dependency boundaries
 
@@ -44,6 +56,18 @@ AC6's ELF entry is explicitly set to `Reset_Handler`, so FVP executes the CMSIS 
 
 ## Recorded execution
 
+[Nine-cell run 40891992958](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40891992958), implementation commit `34466d1`, 29 October 2026:
+
+- All nine cells built, passed binary/pack audits and executed all 39 cases. CPU results remain 38/39 with RELU6 failing.
+- Each M85 + U85 compiler cell passed **38/39**. All 34 delegated fixtures produced NPU completion interrupts; the five CPU-only fixtures produced none.
+- U85 RELU6 passes. **MIRROR_PAD fails**: first output expected -27, actual -103; maximum integer discrepancy 101. The failing compiled-model/NPU path is identified, but the responsible component has not been isolated. No golden, tolerance or candidate runtime was changed to hide it.
+- All negative controls detected the deliberately incorrect ADD value; U85 controls retained MIRROR_PAD as an unrelated failure and correctly rejected the suite.
+- The original 39 model hashes, inputs, expected values and quantization are identical across all nine cells; U85 artifacts preserve original models separately from Vela output.
+- The [92-case Reference regression](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40891993050) and pack infrastructure checks passed.
+- No hardware speedup was measured. Equal pass totals conceal different failing operators and do not measure performance.
+
+### Earlier CPU execution
+
 [Run 40700594420](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40700594420), implementation commit `1291dee`:
 
 - All six requested CPU/compiler combinations built, passed pack-resolution and binary audits, and executed all 39 cases on the matching core.
@@ -51,7 +75,7 @@ AC6's ELF entry is explicitly set to `Reset_Handler`, so FVP executes the CMSIS 
 - Each negative run passed **37/39**, detected the deliberate ADD error of **100**, and retained the RELU6 failure. Its overall acceptance gate correctly remains failed.
 - M55 binaries contain integer Helium instructions inside linked CMSIS-NN functions (AC6: 11 functions, LLVM: 14, GCC: 42); runtime core/MVE identity passed. These counts are static evidence, not performance comparisons.
 - Generated model hashes, input values and host goldens are identical across all six jobs.
-- All three M55 + U85 cells are **not executed**, pending the exact target.
+- At the time of that run, all three M55 + U85 cells were **not executed**, pending the exact target. That requirement was subsequently replaced by M85 + U85 as described above.
 
 Generate a browser-readable report from the downloaded Actions artifact directories:
 

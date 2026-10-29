@@ -106,8 +106,11 @@ or execution backend is covered. Implementation tested: `7a912f9`.
 
 The [matrix implementation](../tensorflow-test/matrix/README.md) adds 39 full-int8
 fixtures across Cortex-M4 CMSIS-NN and Cortex-M55 CMSIS-NN with Helium, using
-GCC package 15.3.2, AC6 6.24 and LLVM 23.1.0. The exact M55 + Ethos-U85 target
-remains pending user identification; no M85 substitution is made. The requested
+GCC package 15.3.2, AC6 6.24 and LLVM 23.1.0. On 29 October the user authorized
+replacing the pending M55 + Ethos-U85 target with Corstone-320 M85 + Ethos-U85.
+That path compiles the preserved fixtures with Vela 5.1.0, retains the original
+goldens, and checks per-case NPU completion interrupts and explicit CPU fallback.
+It verifies correctness and execution routing, not hardware speedup. The requested
 nine cells are retained in `tensorflow-test/matrix/requested-matrix.json`.
 
 The [qualification run](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40700594420)

@@ -217,6 +217,10 @@ def generate(checkout, packs, target=None, compiler="GCC"):
         skips.update({n: 'Outside the reviewed full-int8 fixture scope; existing Reference coverage is separate.'
                       for n in registry if n not in OPERATORS})
         registry = {n: r for n, r in registry.items() if n in OPERATORS}
+        if target == 'M85-U85':
+            skips['ETHOS_U'] = ('No standalone ETHOS_U recipe: this custom registration is exercised as '
+                               'the Vela-compiled backend of the built-in fixtures. See per-case Vela '
+                               'partitions and runtime NPU completion evidence.')
     coverage = reconcile(rows, registry, skips)
     output = checkout / 'OperatorTest'
     output.mkdir(exist_ok=True)
