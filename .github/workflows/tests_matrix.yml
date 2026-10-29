@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [M4-CMSISNN, M55-CMSISNN]
+        target: [M4-CMSISNN, M55-CMSISNN, M85-U85]
         compiler: [GCC, AC6, CLANG]
     runs-on: ubuntu-26.04
     timeout-minutes: 45
@@ -100,6 +100,10 @@ jobs:
       - name: Install candidate packs
         run: cpackget add ../out/*.pack -a
 
+      - name: Install pinned Vela for Ethos-U85
+        if: matrix.target == 'M85-U85'
+        run: python -m pip install ethos-u-vela==5.1.0
+
       - name: Generate full-int8 models and target consumer
         env:
           TF_ENABLE_ONEDNN_OPTS: '0'
@@ -155,6 +159,7 @@ jobs:
             litert/*.csolution.yml
             litert/*.cproject.yml
             litert/MatrixBoard/
+            litert/board/Corstone-320/
             litert/*-version.txt
             litert/compiler-packages.txt
             litert/tmp/**/*.map

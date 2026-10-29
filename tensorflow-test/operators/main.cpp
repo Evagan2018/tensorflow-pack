@@ -6,6 +6,9 @@
 #include "test_data.h"
 #include "resolver.h"
 #include "control.h"
+#ifdef OPS_USE_NPU
+extern "C" unsigned ops_npu_irq_count(void);
+#endif
 
 namespace {
 alignas(16) unsigned char arena[131072];
@@ -31,7 +34,17 @@ bool run(const TestCase& c, size_t& checks, float& max_error, const char*& reaso
     if (!metadata(interpreter.input(i), c.inputs[i])) { reason = "input-metadata"; return false; }
     memcpy(interpreter.input(i)->data.raw, c.inputs[i].bytes, c.inputs[i].size);
   }
+#ifdef OPS_USE_NPU
+  const unsigned before = ops_npu_irq_count();
+#endif
   if (interpreter.Invoke() != kTfLiteOk) { reason = "invoke"; return false; }
+#ifdef OPS_USE_NPU
+  const unsigned interrupts = ops_npu_irq_count() - before;
+  printf("OPS_NPU:%s:subgraphs=%u:irqs=%u\n", c.id, c.npu_subgraphs, interrupts);
+  if ((c.npu_subgraphs && interrupts < c.npu_subgraphs) || (!c.npu_subgraphs && interrupts)) {
+    reason = "npu-evidence"; return false;
+  }
+#endif
   bool pass = true;
   for (size_t i = 0; i < c.output_count; ++i) {
     auto* t = interpreter.output(i);

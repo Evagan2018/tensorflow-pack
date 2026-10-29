@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 
-def audit(disassembly, require_mve):
+def audit(disassembly, require_mve, npu=False):
     functions = {}
     current = None
     for line in disassembly.splitlines():
@@ -18,14 +18,16 @@ def audit(disassembly, require_mve):
             functions[current].append(line)
     kernels = {n: lines for n, lines in functions.items()
                if re.match(r'arm_(convolve|depthwise_conv|fully_connected|nn_|elementwise|avgpool|max_pool)', n)}
-    if not kernels: raise ValueError('No CMSIS-NN kernel symbols in the executable')
+    driver = sorted(set(re.findall(r'^[0-9a-f]+ <(ethosu_invoke[^>]*)>:', disassembly, re.M)))
+    if npu and not driver: raise ValueError('No Ethos-U invocation function in the executable')
+    if not npu and not kernels: raise ValueError('No CMSIS-NN kernel symbols in the executable')
     # These are integer MVE vector load/store and arithmetic mnemonics, not scalar VFP.
     pattern = r'\b(vldrb|vldrh|vldrw|vstrb|vstrh|vstrw|vctp|vmladav|vmlaldav|vaddv|vqrdmulh|vqdmladh)[a-z0-9.]*\b'
     mve = {n: [l.strip() for l in lines if re.search(pattern, l)] for n, lines in kernels.items()}
     mve = {n: lines for n, lines in mve.items() if lines}
-    if require_mve and not mve: raise ValueError('No integer Helium instructions found in linked CMSIS-NN kernels')
+    if require_mve and not npu and not mve: raise ValueError('No integer Helium instructions found in linked CMSIS-NN kernels')
     if not require_mve and mve: raise ValueError('MVE instructions found in Cortex-M4 image')
-    return dict(cmsis_nn_symbols=sorted(kernels), mve_instructions=mve,
+    return dict(cmsis_nn_symbols=sorted(kernels), mve_instructions=mve, ethosu_invoke_symbols=driver,
                 scope='Static linked-code evidence; runtime CPUID/MVE check and numerical invocation are separate checks')
 
 
@@ -39,5 +41,5 @@ if __name__ == '__main__':
     if len(images) != 1: raise ValueError('Expected exactly one built executable')
     disassembly = subprocess.check_output(['arm-none-eabi-objdump', '-d', str(images[0])], text=True)
     (root / 'binary-disassembly.txt').write_text(disassembly)
-    result = audit(disassembly, manifest['matrix']['mve'])
+    result = audit(disassembly, manifest['matrix']['mve'], bool(manifest['matrix'].get('npu')))
     (root / 'binary-audit.json').write_text(json.dumps(result, indent=2))

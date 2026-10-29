@@ -7,6 +7,9 @@ from profile import TARGETS, COMPILERS
 
 
 def configure(root, evidence, target, compiler):
+    if target == 'M85-U85':
+        from consumer_u85 import configure as configure_u85
+        return configure_u85(root, evidence, compiler)
     spec = TARGETS[target]
     source = Path(__file__).resolve().parents[1]
     board = root / 'MatrixBoard'

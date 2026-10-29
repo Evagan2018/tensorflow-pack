@@ -18,4 +18,5 @@ struct TestCase {
   size_t output_count;
   float atol, rtol;
   bool negative_control_target;
+  unsigned npu_subgraphs;
 };

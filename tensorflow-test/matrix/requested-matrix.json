@@ -22,12 +22,12 @@
       "readiness": "implemented"
     },
     {
-      "id": "M55-U85",
-      "core": "Cortex-M55",
-      "backend": "Ethos-U85",
-      "model": null,
-      "readiness": "awaiting-user-target",
-      "reason": "User retained the exact M55 + U85 requirement. Standard Corstone-320 FVP is M85 + U85; do not substitute."
+      "id": "M85-U85",
+      "core": "Cortex-M85",
+      "backend": "Ethos-U85 with CMSIS-NN CPU fallback",
+      "model": "FVP_Corstone_SSE-320",
+      "readiness": "implemented",
+      "reason": "User authorized replacing the pending M55 + U85 target with standard Corstone-320 M85 + U85. Execution results and performance evidence remain separate."
     }
   ]
 }

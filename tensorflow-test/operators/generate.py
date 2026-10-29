@@ -166,7 +166,8 @@ def emit(cases, methods, output):
         # Deliberately corrupt ADD only in a separate negative-control build.
         records.append(f'{{"{case["id"]}", model_{i}, inputs_{i}, {len(inputs)}, expected_{i}, '
                        f'{len(expected)}, {case["atol"]}f, {case["rtol"]}f, '
-                       f'{str(case["operator"] == "ADD").lower()}}}')
+                       f'{str(case["operator"] == "ADD").lower()}, '
+                       f'{case.get("vela", {}).get("npu_subgraphs", 0)}}}')
     code.append('const TestCase kCases[] = {' + ',\n'.join(records) + '};')
     code.append('constexpr size_t kCaseCount = sizeof(kCases)/sizeof(kCases[0]);')
     (output / 'test_data.h').write_text('\n'.join(code) + '\n')
@@ -228,6 +229,10 @@ def generate(checkout, packs, target=None, compiler="GCC"):
         try:
             model, inputs, expected, operators = model_builder(name, recipe)
             case_id = name.lower() + ('_int8' if target else '_reference')
+            vela = None
+            if target == 'M85-U85':
+                from vela import compile_model
+                model, operators, vela = compile_model(model, output, case_id)
             (output / f'{case_id}.tflite').write_bytes(model)
             cases.append(dict(id=case_id, operator=name, operators=operators,
                 generator='explicit-flatbuffer' if recipe.direct else 'tensorflow-converter',
@@ -238,6 +243,8 @@ def generate(checkout, packs, target=None, compiler="GCC"):
                 inputs=[dict(shape=list(a.shape), dtype=str(a.dtype), values=a.tolist()) for a in inputs],
                 expected=[dict(shape=list(a.shape), dtype=str(a.dtype), values=a.tolist()) for a in expected],
                 atol=0.0 if target else recipe.atol, rtol=0.0 if target else recipe.rtol, _data=(model, inputs, expected)))
+            if vela is not None:
+                cases[-1]['vela'] = vela
             used.update(op['operator'] for op in operators)
             print(f'GENERATED {name}', flush=True)
         except Exception as error:
@@ -247,6 +254,10 @@ def generate(checkout, packs, target=None, compiler="GCC"):
     if errors:
         raise ValueError(f'{len(errors)} generation errors; no suite can run')
     methods = {r['operator']: r['method'] for r in rows if r['kind'] == 'builtin'}
+    if target == 'M85-U85':
+        methods['ETHOS_U'] = next(r['method'] for r in rows if r['operator'] == 'ETHOS_U')
+        if not any(c['vela']['npu_subgraphs'] for c in cases):
+            raise ValueError('NPU target has no delegated case')
     if not used <= set(methods):
         raise ValueError(f'Model uses unregistered operations: {used-set(methods)}')
     emit(cases, {methods[n] for n in used}, output)
@@ -255,7 +266,7 @@ def generate(checkout, packs, target=None, compiler="GCC"):
     (output / 'manifest.json').write_text(json.dumps(dict(profile='1.26.8-rc4-int8' if target else '1.26.8-rc4-reference',
         converter=tf.__version__, numpy=np.__version__, cases=cases, coverage=coverage, packs=evidence,
         arena_bytes=131072, scope='One reviewed case per executed operator; not exhaustive dtype/shape coverage'), indent=2))
-    write_consumer(checkout, evidence)
+    write_consumer(checkout, evidence, use_npu=target == 'M85-U85')
     project = checkout / 'cmsis-litert.cproject.yml'
     project.write_text(project.read_text().replace('Generated float32 ADD test', 'Generated operator suite')
                        .replace('ADD test', 'Operator suite').replace('./AddTest/main.cpp', './OperatorTest/main.cpp'))
@@ -271,7 +282,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--checkout', type=Path, required=True)
     parser.add_argument('--packs', type=Path, required=True)
-    parser.add_argument('--target', choices=['M4-CMSISNN', 'M55-CMSISNN'])
+    parser.add_argument('--target', choices=['M4-CMSISNN', 'M55-CMSISNN', 'M85-U85'])
     parser.add_argument('--compiler', choices=['GCC', 'AC6', 'CLANG'], default='GCC')
     args = parser.parse_args()
     generate(args.checkout, args.packs, args.target, args.compiler)

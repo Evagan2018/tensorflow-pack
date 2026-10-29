@@ -41,6 +41,20 @@ class VerdictTests(unittest.TestCase):
         self.assertFalse(evaluate(self.manifest, self.bad, 0)['accepted'])
         self.assertFalse(evaluate(self.manifest, self.good, 0, negative=True)['accepted'])
 
+    def test_npu_requires_completion_for_each_delegated_case(self):
+        self.manifest['matrix'] = dict(part=0xd23, mve=True, npu='Ethos-U85')
+        self.manifest['cases'][0]['vela'] = dict(npu_subgraphs=1)
+        self.manifest['cases'][1]['vela'] = dict(npu_subgraphs=0)
+        header = ('MATRIX_TARGET:part=d23:mve=3\n'
+                  'OPS_NPU:add_reference:subgraphs=1:irqs=1\n'
+                  'OPS_NPU:mul_reference:subgraphs=0:irqs=0\n')
+        self.assertTrue(evaluate(self.manifest, header + self.good, 0)['accepted'])
+        for bad in [header.replace('irqs=1', 'irqs=0'), header.replace('subgraphs=1', 'subgraphs=0'),
+                    header.replace('subgraphs=0:irqs=0', 'subgraphs=0:irqs=1'),
+                    header + 'OPS_NPU:add_reference:subgraphs=1:irqs=1\n',
+                    header.replace('OPS_NPU:mul_reference:subgraphs=0:irqs=0\n', '')]:
+            self.assertFalse(evaluate(self.manifest, bad + self.good, 0)['accepted'])
+
     def test_bad_evidence_fails(self):
         for log in [self.good + self.good, self.good.replace('checks=4', 'checks=0'),
                     self.good.replace('add_reference', 'unknown'),

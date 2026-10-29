@@ -1,7 +1,7 @@
 """Shared generated Reference-CPU consumer using the pinned LiteRT board."""
 import yaml
 
-def write_consumer(checkout, evidence):
+def write_consumer(checkout, evidence, use_npu=False):
     # Reuse the pinned board's startup and semihosting, without NPU initialization.
     board_path = checkout / 'board/Corstone-320/Board-U85.clayer.yml'
     board = yaml.safe_load(board_path.read_text())
@@ -12,7 +12,8 @@ def write_consumer(checkout, evidence):
     layer['components'] = [c for c in layer['components'] if 'Ethos-U Driver' not in c['component']]
     for group in layer['groups']:
         group['files'] = [f for f in group['files'] if not f['file'].endswith('ethos_setup.c')]
-    board_path.write_text(yaml.safe_dump(board, sort_keys=False))
+    if not use_npu:
+        board_path.write_text(yaml.safe_dump(board, sort_keys=False))
     selections = '\n'.join(f"    - pack: {e['pack']}@{e['version']}" for e in evidence)
     (checkout / 'cmsis-litert.csolution.yml').write_text('''solution:
   created-for: CMSIS-Toolbox@2.14.1

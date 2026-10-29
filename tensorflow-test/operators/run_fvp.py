@@ -45,6 +45,22 @@ def evaluate(manifest, log, returncode, timed_out=False, negative=False):
     if set(actual) != set(expected):
         errors.append('Missing cases: ' + ','.join(sorted(set(expected) - set(actual))))
     total = len(expected)
+    npu_evidence = {}
+    if manifest.get('matrix', {}).get('npu'):
+        for line in log.splitlines():
+            if not line.startswith('OPS_NPU:'): continue
+            m = re.fullmatch(r'OPS_NPU:([^:]+):subgraphs=(\d+):irqs=(\d+)', line)
+            if not m or m[1] not in expected or m[1] in npu_evidence:
+                errors.append('Malformed, duplicate or unknown NPU evidence: ' + line)
+                continue
+            subgraphs, irqs = int(m[2]), int(m[3])
+            planned = expected[m[1]]['vela']['npu_subgraphs']
+            npu_evidence[m[1]] = dict(subgraphs=subgraphs, completion_interrupts=irqs)
+            if subgraphs != planned or (planned and irqs < planned) or (not planned and irqs):
+                errors.append('Incorrect NPU execution evidence: ' + m[1])
+        if set(npu_evidence) != set(expected): errors.append('Missing per-case NPU evidence')
+        if not any(c['vela']['npu_subgraphs'] for c in expected.values()):
+            errors.append('No NPU-delegated case in NPU matrix')
     passed = sum(r['status'] == 'PASS' for r in actual.values())
     summaries = [line for line in log.splitlines() if line.startswith('OPS_SUMMARY:')]
     if summaries != [f'OPS_SUMMARY:{passed}/{total}']:
@@ -56,7 +72,7 @@ def evaluate(manifest, log, returncode, timed_out=False, negative=False):
     return dict(accepted=not errors, numerical_pass=not negative and not errors,
                 negative_control=negative, errors=errors, cases=actual,
                 passed=passed, expected_count=total, returncode=returncode, timed_out=timed_out,
-                coverage=manifest['coverage'])
+                coverage=manifest['coverage'], npu_evidence=npu_evidence)
 
 
 def main():
