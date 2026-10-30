@@ -269,7 +269,8 @@ def generate(checkout, packs, target=None, compiler="GCC"):
         shutil.copyfile(Path(__file__).with_name(filename), output / filename)
     (output / 'manifest.json').write_text(json.dumps(dict(profile='1.26.8-rc4-int8' if target else '1.26.8-rc4-reference',
         converter=tf.__version__, numpy=np.__version__, cases=cases, coverage=coverage, packs=evidence,
-        arena_bytes=131072, scope='One reviewed case per executed operator; not exhaustive dtype/shape coverage'), indent=2))
+        arena_bytes=131072, protocol_version=2,
+        scope='One reviewed case per executed operator; not exhaustive dtype/shape coverage'), indent=2))
     write_consumer(checkout, evidence, use_npu=target == 'M85-U85')
     project = checkout / 'cmsis-litert.cproject.yml'
     project.write_text(project.read_text().replace('Generated float32 ADD test', 'Generated operator suite')

@@ -16,6 +16,10 @@ def evaluate(manifest, log, returncode, timed_out=False, negative=False):
         raise ValueError('Empty/duplicate manifest cases')
     pattern = r'OPS_CASE:([^:]+):(PASS|FAIL):checks=(\d+):max_abs=([^:]+):reason=([^:]+)'
     actual, errors = {}, []
+    if manifest.get('protocol_version', 1) >= 2:
+        modes = re.findall(r'^OPS_MODE:negative_control=(\d+):case_filter=([^\r\n]*)$', log, re.M)
+        if modes != [(str(int(negative)), manifest.get('case_filter', ''))]:
+            errors.append('Missing or incorrect runtime negative-control/case-filter mode')
     if 'matrix' in manifest:
         matrix = manifest['matrix']
         identities = re.findall(r'^MATRIX_TARGET:part=([0-9a-f]+):mve=(\d+)$', log, re.M)
@@ -39,6 +43,8 @@ def evaluate(manifest, log, returncode, timed_out=False, negative=False):
         actual[m[1]] = dict(status=m[2], checks=int(m[3]), max_abs=delta, reason=m[5])
         if int(m[3]) != count or not math.isfinite(delta) or delta < 0:
             errors.append('Incomplete/invalid comparison: ' + m[1])
+        if manifest.get('matrix', {}).get('input_format') == 'int8' and m[2] == 'PASS' and delta != 0:
+            errors.append('Int8 PASS contradicts nonzero numerical error: ' + m[1])
         want_fail = negative and case['operator'] == 'ADD'
         if (m[2], m[5]) != (('FAIL', 'numerical') if want_fail else ('PASS', 'none')):
             errors.append('Unexpected verdict: ' + m[1])
@@ -80,9 +86,18 @@ def main():
     p.add_argument('--checkout', type=Path, required=True)
     p.add_argument('--name', default='operators-positive')
     p.add_argument('--negative', action='store_true')
+    p.add_argument('--case', help='Diagnostic single-case run; must match the compiled OPS_CASE_FILTER')
     args = p.parse_args()
     root = args.checkout.resolve()
     manifest = json.loads((root / 'OperatorTest/manifest.json').read_text())
+    if args.case:
+        selected = [c for c in manifest['cases'] if c['id'] == args.case]
+        if len(selected) != 1: p.error('Unknown or duplicate diagnostic case')
+        manifest['cases'] = selected
+        manifest['case_filter'] = args.case
+        for row in manifest['coverage']:
+            if row['status'] == 'planned' and row['operator'] != selected[0]['operator']:
+                row.update(status='skipped', reason='Not selected for this isolated diagnostic run')
     images = sorted(set(root.glob('out/**/cmsis-litert.elf')) | set(root.glob('out/**/cmsis-litert.axf')))
     if len(images) != 1:
         p.error(f'Expected one executable, found {len(images)}')
@@ -99,7 +114,8 @@ def main():
             return data.decode(errors='replace') if isinstance(data, bytes) else (data or '')
         log, code = decode(error.stdout) + decode(error.stderr), None
     report = evaluate(manifest, log, code, timed_out, args.negative)
-    report.update(matrix=manifest.get('matrix'), image_sha256=hashlib.sha256(images[0].read_bytes()).hexdigest(), command=command)
+    report.update(matrix=manifest.get('matrix'), case_filter=manifest.get('case_filter', ''),
+                  image_sha256=hashlib.sha256(images[0].read_bytes()).hexdigest(), command=command)
     for row in report['coverage']:
         if row['status'] == 'planned':
             case_id = next(c['id'] for c in manifest['cases'] if c['operator'] == row['operator'])

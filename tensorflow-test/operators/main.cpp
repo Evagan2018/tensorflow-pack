@@ -6,6 +6,9 @@
 #include "test_data.h"
 #include "resolver.h"
 #include "control.h"
+#ifndef OPS_CASE_FILTER
+#define OPS_CASE_FILTER ""
+#endif
 #ifdef OPS_USE_NPU
 extern "C" unsigned ops_npu_irq_count(void);
 #endif
@@ -87,14 +90,27 @@ bool run(const TestCase& c, size_t& checks, float& max_error, const char*& reaso
     }
   }
   if (!pass) reason = "numerical";
+  if (!pass) {
+    for (size_t i = 0; i < c.output_count; ++i) {
+      auto* t = interpreter.output(i);
+      if (t->type != kTfLiteInt8) continue;
+      printf("OPS_OUTPUT:%s:output=%u:actual=", c.id, unsigned(i));
+      for (size_t j = 0; j < c.expected[i].size; ++j)
+        printf("%s%d", j ? "," : "", int(t->data.int8[j]));
+      printf("\n");
+    }
+  }
   return pass;
 }
 }
 
 extern "C" int app_main(void) {
+  printf("OPS_MODE:negative_control=%u:case_filter=%s\n", unsigned(OPS_NEGATIVE_CONTROL), OPS_CASE_FILTER);
   if (!register_ops(resolver)) { printf("OPS_FATAL:registration\n"); return 1; }
-  size_t passed = 0;
+  size_t passed = 0, total = 0;
   for (const auto& c : kCases) {
+    if (OPS_CASE_FILTER[0] && strcmp(c.id, OPS_CASE_FILTER) != 0) continue;
+    ++total;
     size_t checks = 0;
     float max_error = 0.f;
     const char* reason = "none";
@@ -103,6 +119,6 @@ extern "C" int app_main(void) {
     printf("OPS_CASE:%s:%s:checks=%u:max_abs=%.9g:reason=%s\n",
            c.id, ok ? "PASS" : "FAIL", unsigned(checks), max_error, reason);
   }
-  printf("OPS_SUMMARY:%u/%u\n", unsigned(passed), unsigned(kCaseCount));
-  return passed == kCaseCount ? 0 : 1;
+  printf("OPS_SUMMARY:%u/%u\n", unsigned(passed), unsigned(total));
+  return total && passed == total ? 0 : 1;
 }

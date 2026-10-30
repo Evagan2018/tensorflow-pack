@@ -18,6 +18,10 @@ on:
         description: 'Release candidate revision'
         required: false
         default: 'rc4'
+      run_negative_control:
+        description: 'Also run the deliberate ADD-error control (off for development reports)'
+        type: boolean
+        default: false
 
 run-name: Int8 CMSIS-NN matrix with tensorflow pack ${{ inputs.revision || '26.08' }}_${{ inputs.candidate_rev || 'rc4' }}
 
@@ -111,6 +115,15 @@ jobs:
           TF_NUM_INTRAOP_THREADS: '1'
         run: python ../pack-ci/tensorflow-test/operators/generate.py --checkout . --packs ../out --target ${{ matrix.target }} --compiler ${{ matrix.compiler }} > generation.log
 
+      - name: Verify calibration regression and independently audit fixture evidence
+        env:
+          TF_ENABLE_ONEDNN_OPTS: '0'
+          TF_NUM_INTEROP_THREADS: '1'
+          TF_NUM_INTRAOP_THREADS: '1'
+        run: |
+          python ../pack-ci/tensorflow-test/matrix/check_quantization.py > calibration-check.log
+          python ../pack-ci/tensorflow-test/matrix/fixture_audit.py --checkout . > fixture-audit.log
+
       - name: Build CMSIS-NN target and verify resolved packs
         run: |
           cbuild cmsis-litert.csolution.yml --active ${{ matrix.target }} --toolchain ${{ matrix.compiler }} --packs --update-rte 2>&1 | tee build.log
@@ -127,7 +140,7 @@ jobs:
 
       - name: Corrupt one expected value and rebuild
         id: negative_build
-        if: ${{ !cancelled() && steps.audit.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.audit.outcome == 'success' && (github.event_name != 'workflow_dispatch' || inputs.run_negative_control) }}
         run: |
           cp OperatorTest/control.h OperatorTest/control.positive.h
           python ../pack-ci/tensorflow-test/operators/negative_control.py --header OperatorTest/control.h
@@ -140,6 +153,21 @@ jobs:
           PYTHONHOME: ${{ env.pythonLocation }}
         run: python ../pack-ci/tensorflow-test/operators/run_fvp.py --checkout . --name operators-negative --negative
 
+      - name: Re-run the reported regression alone without deliberate corruption
+        if: ${{ !cancelled() && steps.audit.outcome == 'success' && github.event_name == 'workflow_dispatch' && !inputs.run_negative_control }}
+        env:
+          PYTHONHOME: ${{ env.pythonLocation }}
+        run: |
+          case_id=relu6_int8
+          if [ '${{ matrix.target }}' = 'M85-U85' ]; then case_id=mirror_pad_int8; fi
+          cp OperatorTest/control.h OperatorTest/control.positive.h
+          trap 'cp OperatorTest/control.positive.h OperatorTest/control.h' EXIT
+          printf '\n#define OPS_CASE_FILTER "%s"\n' "$case_id" >> OperatorTest/control.h
+          cp OperatorTest/control.h OperatorTest/control.isolated.h
+          cbuild cmsis-litert.csolution.yml --active ${{ matrix.target }} --toolchain ${{ matrix.compiler }} --update-rte 2>&1 | tee isolated-build.log
+          python ../pack-ci/.github/scripts/litert_candidate.py verify --checkout .
+          python ../pack-ci/tensorflow-test/operators/run_fvp.py --checkout . --name operators-isolated --case "$case_id"
+
       - name: Upload complete operator evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -150,8 +178,10 @@ jobs:
             litert/*.log
             litert/operators-positive.json
             litert/operators-negative.json
+            litert/operators-isolated.json
             litert/operators-positive.elf
             litert/operators-negative.elf
+            litert/operators-isolated.elf
             litert/*.junit.xml
             litert/candidate-packs.json
             litert/example-commit.txt

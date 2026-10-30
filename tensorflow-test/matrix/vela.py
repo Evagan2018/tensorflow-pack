@@ -14,7 +14,7 @@ def interface(model):
         for index in indices:
             t = graph.Tensors(int(index))
             q = t.Quantization()
-            tensors.append((t.Type(), tuple(t.ShapeAsNumpy()),
+            tensors.append((t.Name(), t.Type(), tuple(t.ShapeAsNumpy()),
                 tuple(q.ScaleAsNumpy()) if q and q.ScaleLength() else (),
                 tuple(q.ZeroPointAsNumpy()) if q and q.ZeroPointLength() else ()))
         result.append(tensors)
