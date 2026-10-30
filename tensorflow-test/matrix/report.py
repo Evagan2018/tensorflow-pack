@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 
-def render(root, run_url):
+def render(root, run_url, positive_only=False):
     config = json.loads(Path(__file__).with_name('requested-matrix.json').read_text())
     rows, details, routes = [], [], []
     for target in config['targets']:
@@ -27,6 +27,14 @@ def render(root, run_url):
                     negative = 'detected; suite accepted' if control.get('accepted') else ('ADD detected; other failure' if detected else 'not verified')
                     audit = folder / 'binary-audit.json'
                     status = 'PASS' if result['numerical_pass'] and control.get('accepted') and audit.exists() else ('FAIL' if neg.exists() and audit.exists() else 'INCOMPLETE')
+                    if positive_only:
+                        fixture_path = folder / 'OperatorTest/fixture-audit.json'
+                        fixture_ok = fixture_path.exists() and json.loads(fixture_path.read_text()).get('accepted')
+                        log = (folder / 'operators-positive.log').read_text()
+                        mode_ok = log.count('OPS_MODE:negative_control=0:case_filter=\n') == 1 and result.get('negative_control') is False
+                        evidence_ok = fixture_ok and mode_ok and audit.exists() and not neg.exists()
+                        negative = 'Not run (positive-only qualification)'
+                        status = ('PASS' if result['accepted'] else 'FAIL') if evidence_ok else 'INCOMPLETE'
                     note = '; '.join(result['errors']) or 'Exact int8 equality; runtime CPU check.'
                     if audit.exists():
                         code = json.loads(audit.read_text())
@@ -53,7 +61,7 @@ def render(root, run_url):
     if routes:
         route_table = '<h2>Where the M85 + U85 fixtures execute</h2><p>Vela partitions the original model. The runtime interrupt evidence above independently checks that delegated work completed. CPU fallback is retained, tested and identified.</p><details><summary>Execution route for all 39 fixtures</summary><table><tr><th>Fixture operator</th><th>Route</th><th>Remaining CPU operators</th></tr>'
         route_table += ''.join('<tr>' + ''.join('<td>' + html.escape(c) + '</td>' for c in r) + '</tr>' for r in routes) + '</table></details>'
-    return """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    page = """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TensorFlow int8 test matrix</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:1350px;margin:30px auto;padding:0 24px;background:#f5f8fc;color:#183247}table{border-collapse:collapse;background:white;width:100%;font-size:14px}th,td{border:1px solid #cad8e3;padding:10px;text-align:left;vertical-align:top}th{background:#e1edf9}.note{padding:16px;background:#e1edf9;border-radius:9px}code{font-size:13px}a{color:#006a96}</style>
 <h1>TensorFlow pack — int8 test matrix</h1>
 <p><a href="tensorflow-testing-glossary.html#diagrams">Open the 14 diagrams and expandable file-reference boxes in the glossary</a>. Select a square there to find its source files, generated artifacts or dependency information.</p>
@@ -120,6 +128,15 @@ recipe = Recipe(tf.add, [x, y])</pre>
 <p>In the manifest, <code>inputs</code> contains the actual ordered int8 test values, <code>expected</code> contains the host goldens, and <code>quantization</code> describes their encoding. For CPU artifacts, <code>OperatorTest/add_int8.tflite</code> is the original model; the Vela folders exist only for the U85 path. Generated files are Actions artifacts, not files you should expect to find committed alongside the recipes.</p></section>
 <h2>Scope and versions</h2><p>The original 92-operator Reference suite remains separate. The int8 fixtures below are not exhaustive operator, shape or quantization coverage. CMSIS-NN's kernel variant includes fallback implementations; this does not imply every operator uses an optimized CMSIS-NN routine. The disassembly check is static code evidence, not a runtime instruction trace or performance measurement.</p>
 <p>GCC package <strong>15.3.2</strong> is Arm GNU Toolchain <strong>15.3.Rel2</strong>; its executable reports <strong>15.3.1</strong>. AC6 is <strong>6.24</strong>, LLVM is <strong>23.1.0</strong>. The artifacts record both package selections and executable version output. CMSIS-NN <strong>7.0.0</strong> matches this TensorFlow candidate's dependency; CMSIS 6.4.0, CMSIS-Compiler 2.1.0 and Cortex_DFP 1.2.0 are pinned.</p>""" + operators + '</html>'
+    page = page.replace('Six input sets made by multiplying', 'Six named input sets (bound by signature name, not positional order) made by multiplying')
+    page = page.replace('Calibration runs representative examples', 'MINIMUM and MAXIMUM also receive two endpoint calibration sets so their shared encoding covers both inputs without clipping. The generator rejects out-of-range recipe inputs. Calibration runs representative examples')
+    if positive_only:
+        page = page.replace('<h1>TensorFlow pack — int8 test matrix</h1>', '<h1>TensorFlow pack — int8 test matrix</h1><p class="note"><strong>30 October 2026: positive-only rerun after calibration fixes.</strong> All nine cells generated and audited 39 fixtures. Deliberate ADD corruption was disabled. Remaining failures also reproduce in isolated fresh-simulator runs. <a href="development-test-review.html">Development report and investigation details</a>.</p>')
+        page = page.replace('The negative-control run still corrupts ADD. It must detect ADD, but its overall gate also remains failed while the unrelated RELU6 regression exists.', 'This rerun contains no deliberate corruption. The CPU RELU6 discrepancy also reproduces as the only case after a fresh simulator start.')
+        page = page.replace('The U85 negative control also detects the deliberately corrupted ADD value, while retaining MIRROR_PAD as an unrelated failure.', 'The isolated U85 MIRROR_PAD run reproduces the same discrepancy with deliberate corruption disabled.')
+        page = page.replace('<strong>Check the checker:</strong> intentionally change one ADD golden. Only ADD must fail; every other case must still pass.', '<strong>Audit and isolate:</strong> check embedded bytes against the manifest, replay host goldens, and run the reported failing case alone. Deliberate corruption is disabled for this qualification; it remains an optional checker self-test.')
+        page = page.replace('https://github.com/Evagan2018/tensorflow-pack/actions/runs/40891992958', html.escape(run_url, quote=True)).replace('workflow run 40891992958', 'the corrected positive-only workflow run')
+    return page
 
 
 if __name__ == '__main__':
@@ -127,6 +144,7 @@ if __name__ == '__main__':
     p.add_argument('--artifacts', type=Path, required=True)
     p.add_argument('--run-url', required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--positive-only', action='store_true', help='Require fixture audit and normal runtime mode; no deliberate-error artifact may exist')
     args = p.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render(args.artifacts, args.run_url), encoding='utf-8')
+    args.output.write_text(render(args.artifacts, args.run_url, args.positive_only), encoding='utf-8')

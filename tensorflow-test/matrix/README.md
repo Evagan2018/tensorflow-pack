@@ -30,7 +30,7 @@ The M4 simulation enables its optional single-precision FPU to match Cortex_DFP'
 4. Generate a Cortex_DFP consumer selecting the TensorFlow **CMSIS-NN** kernel variant. Operators without a CMSIS-NN optimized implementation may use the variant's fallback code; this is not a claim that every operator is accelerated.
 5. Build with the pinned compiler. Inspect the linked executable for CMSIS-NN symbols. M55 additionally requires integer Helium instructions in CMSIS-NN functions; M4 rejects those instructions. Retain disassembly and audit results.
 6. Execute on the matching FVP. Firmware reads CPUID and reports its compiled MVE feature. The host rejects a missing/incorrect core or MVE identity. Compare every output against its host golden with **exact equality, zero LSB tolerance**. Retain per-case errors, image hash, command, JSON and JUnit.
-7. Rebuild with one intentionally incorrect ADD golden. Only ADD may fail, specifically for a numerical mismatch; the remaining 38 cases must still pass. This checks that the comparison actually detects errors.
+7. For a manual qualification, leave `run_negative_control=false` (the default). The workflow repeats RELU6 on CPU or MIRROR_PAD on U85 alone after a fresh simulator start. To self-test the checker instead, explicitly enable the negative control: rebuild with one intentionally incorrect ADD golden, require only ADD to fail numerically, and require all other cases to pass. Push-triggered checks retain that self-test.
 
 Static disassembly proves which instructions are linked; it is not an instruction trace or a performance measurement. Runtime identity, invocation and numerical output checks provide separate evidence.
 
@@ -55,6 +55,22 @@ This fixture is retained as a failing regression. The infrastructure does not mo
 AC6's ELF entry is explicitly set to `Reset_Handler`, so FVP executes the CMSIS startup and `SystemInit` before the C runtime. Without that setting, AC6's default `__main` entry bypasses FPU initialization and faults before main. Startup trace evidence was collected in Actions run 40699489726.
 
 ## Recorded execution
+
+### Reviewed positive-only rerun, 30 October 2026
+
+[Run 41040224669](https://github.com/Evagan2018/tensorflow-pack/actions/runs/41040224669) tests commit `142acc9` with `revision=26.08`, `candidate_rev=rc4`, `run_negative_control=false`.
+
+- Corrected our positional calibration bug by binding samples to signature input names. Added endpoint calibration for MINIMUM/MAXIMUM and rejection of clipped recipe inputs. Five fixtures change: ADD, MAXIMUM, MINIMUM, MUL and SUB. RELU6 and MIRROR_PAD models, inputs and goldens are unchanged.
+- All nine cells generate and audit 39 fixtures, build and pass pack/binary checks. Embedded bytes match manifests; host replay matches every golden. Independent NumPy checks confirm RELU6, MIRROR_PAD and SUM. The secondary host reference resolver agrees on 36 cases, lacks two operator versions, and disagrees on SUM; independent math confirms the primary SUM golden. These limitations are recorded in `fixture-audit.json`.
+- All nine positive suites pass 38/39. CPU cells fail RELU6 (max error 127); U85 cells fail MIRROR_PAD (max error 101). Each also fails alone with the same complete output vector. All firmware logs report `negative_control=0`; deliberate-error workflow steps are skipped.
+- Original model bytes match across all nine cells; compiled U85 models match across its three compilers. Candidate pack hashes match the previous run. No candidate source, tolerance or release versioning changed.
+- [Reference run 41040482326](https://github.com/Evagan2018/tensorflow-pack/actions/runs/41040482326), commit `8738349`, passes 92/92 with deliberate corruption disabled. That commit adds only the Reference workflow toggle; runtime/generator code is identical to the matrix run. [Pack infrastructure checks](https://github.com/Evagan2018/tensorflow-pack/actions/runs/41040228616) pass.
+
+`operators-positive.elf` is the full-suite image; `operators-isolated.elf` is the diagnostic image. The final `out/` executable is the latter because the isolated build runs last. `control.h` is restored to the positive configuration; `control.isolated.h` records the diagnostic filter. Use the named ELF snapshots and recorded SHA256 values when reproducing results.
+
+Generate this qualification report with `report.py --positive-only` in addition to the usual arguments. This mode requires normal runtime mode and a passing fixture audit; missing negative-control evidence is deliberately not treated as a successful negative test.
+
+### Historical baseline (before the calibration correction)
 
 [Nine-cell run 40891992958](https://github.com/Evagan2018/tensorflow-pack/actions/runs/40891992958), implementation commit `34466d1`, 29 October 2026:
 

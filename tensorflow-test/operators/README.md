@@ -83,6 +83,12 @@ The existing Release CI cache must contain the exact candidate artifacts.
 Workflow: `.github/workflows/tests_operators.yml`. The existing ADD and
 CMSIS-LiteRT integration workflows remain separate regression tests.
 
+Manual runs default to `run_negative_control=false`, producing only normal
+numerical results for development reports. Enable that input to run the
+intentional ADD-error self-test. Push-triggered runs retain the self-test.
+The positive-only Reference run [41040482326](https://github.com/Evagan2018/tensorflow-pack/actions/runs/41040482326)
+passed 92/92 on 30 October 2026. This does not replace the separate int8 matrix.
+
 Local execution uses the same prerequisites and disposable pinned LiteRT
 checkout as [the ADD test](../add/README.md). After candidate preparation and
 pack installation, replace its generation/run commands with:
