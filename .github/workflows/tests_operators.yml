@@ -17,6 +17,10 @@ on:
         description: 'Release candidate revision'
         required: false
         default: 'rc4'
+      run_negative_control:
+        description: 'Also run the deliberate ADD-error control'
+        type: boolean
+        default: false
 
 run-name: Operator suite Reference CPU test with tensorflow pack ${{ inputs.revision || '26.08' }}_${{ inputs.candidate_rev || 'rc4' }}
 
@@ -105,6 +109,7 @@ jobs:
         run: python ../pack-ci/tensorflow-test/operators/run_fvp.py --checkout . --name operators-positive
 
       - name: Corrupt one expected value and rebuild
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_negative_control }}
         run: |
           cp OperatorTest/control.h OperatorTest/control.positive.h
           python ../pack-ci/tensorflow-test/operators/negative_control.py --header OperatorTest/control.h
@@ -112,6 +117,7 @@ jobs:
           python ../pack-ci/.github/scripts/litert_candidate.py verify --checkout .
 
       - name: Require the numerical checker to detect the wrong expected value
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_negative_control }}
         env:
           PYTHONHOME: ${{ env.pythonLocation }}
         run: python ../pack-ci/tensorflow-test/operators/run_fvp.py --checkout . --name operators-negative --negative
